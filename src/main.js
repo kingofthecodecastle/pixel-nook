@@ -202,14 +202,24 @@ function startGame(id) {
   });
 
   app.querySelectorAll('.pad-btn[data-dx]').forEach((btn) => {
-    btn.setAttribute('tabindex', '-1');
     const fire = (e) => {
       e.preventDefault();
-      btn.blur();
       currentGame?.setDir(+btn.dataset.dx, +btn.dataset.dy);
     };
     btn.addEventListener('pointerdown', fire);
   });
+
+  // Tap/click anywhere (not on UI buttons):
+  // Snake = one left turn; Block Drop = one rotate
+  if (id === 'snake' || id === 'blockdrop') {
+    const playFrame = app.querySelector('#playFrame');
+    playFrame?.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button')) return;
+      e.preventDefault();
+      if (id === 'snake') currentGame?.turnLeft?.();
+      else currentGame?.action?.(); // Block Drop rotateCW
+    });
+  }
   const act = app.querySelector('#actionBtn');
   act.addEventListener('pointerdown', (e) => {
     e.preventDefault();

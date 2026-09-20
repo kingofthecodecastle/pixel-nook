@@ -41,9 +41,16 @@ export function createSnake(canvas, hooks) {
   }
 
   function setDir(dx, dy) {
-    if (!alive || paused) return;
+    if (!alive || paused || over) return;
     if (dx === -dir.x && dy === -dir.y) return;
     nextDir = { x: dx, y: dy };
+  }
+
+  /** One 90° left turn relative to current heading (y-down screen coords). */
+  function turnLeft() {
+    if (!alive || paused || over) return;
+    const d = nextDir;
+    setDir(d.y, -d.x);
   }
 
   function step() {
@@ -189,6 +196,7 @@ export function createSnake(canvas, hooks) {
     update,
     onKey,
     setDir,
+    turnLeft,
     togglePause,
     restart,
     destroy() {},

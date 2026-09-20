@@ -202,8 +202,10 @@ function startGame(id) {
   });
 
   app.querySelectorAll('.pad-btn[data-dx]').forEach((btn) => {
+    btn.setAttribute('tabindex', '-1');
     const fire = (e) => {
       e.preventDefault();
+      btn.blur();
       currentGame?.setDir(+btn.dataset.dx, +btn.dataset.dy);
     };
     btn.addEventListener('pointerdown', fire);

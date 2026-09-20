@@ -51,7 +51,8 @@ export function createMazeMunch(canvas, hooks) {
   function resetFull() {
     map = cloneMaze();
     dotsLeft = countDots(map);
-    player = { x: 9, y: 15, dx: 0, dy: 0, ndx: 0, ndy: 0 };
+    // Open horizontal corridor — start moving so controls feel alive
+    player = { x: 9, y: 19, dx: -1, dy: 0, ndx: -1, ndy: 0 };
     ghost = { x: 9, y: 9, dx: 0, dy: -1 };
     score = 0;
     lives = 3;
@@ -69,7 +70,7 @@ export function createMazeMunch(canvas, hooks) {
   }
 
   function respawn() {
-    player = { x: 9, y: 15, dx: 0, dy: 0, ndx: 0, ndy: 0 };
+    player = { x: 9, y: 19, dx: -1, dy: 0, ndx: -1, ndy: 0 };
     ghost = { x: 9, y: 9, dx: 0, dy: -1 };
     moveAcc = 0;
     ghostAcc = 0;
@@ -84,9 +85,14 @@ export function createMazeMunch(canvas, hooks) {
   }
 
   function setDir(dx, dy) {
-    if (!alive || paused) return;
+    if (!alive || paused || over) return;
     player.ndx = dx;
     player.ndy = dy;
+    // Apply immediately when the next cell is open (incl. reverse)
+    if (canWalk(player.x + dx, player.y + dy)) {
+      player.dx = dx;
+      player.dy = dy;
+    }
   }
 
   function tryTurn(ent) {
@@ -292,13 +298,14 @@ export function createMazeMunch(canvas, hooks) {
   }
 
   function onKey(e) {
-    const k = e.key.toLowerCase();
-    if (k === 'arrowup' || k === 'w') { e.preventDefault(); setDir(0, -1); }
-    else if (k === 'arrowdown' || k === 's') { e.preventDefault(); setDir(0, 1); }
-    else if (k === 'arrowleft' || k === 'a') { e.preventDefault(); setDir(-1, 0); }
-    else if (k === 'arrowright' || k === 'd') { e.preventDefault(); setDir(1, 0); }
-    else if (k === 'p' || k === 'escape') { e.preventDefault(); togglePause(); }
-    else if (k === 'r' && over) { e.preventDefault(); restart(); }
+    const k = (e.key || '').toLowerCase();
+    const c = e.code || '';
+    if (k === 'arrowup' || k === 'w' || c === 'ArrowUp' || c === 'KeyW') { e.preventDefault(); setDir(0, -1); }
+    else if (k === 'arrowdown' || k === 's' || c === 'ArrowDown' || c === 'KeyS') { e.preventDefault(); setDir(0, 1); }
+    else if (k === 'arrowleft' || k === 'a' || c === 'ArrowLeft' || c === 'KeyA') { e.preventDefault(); setDir(-1, 0); }
+    else if (k === 'arrowright' || k === 'd' || c === 'ArrowRight' || c === 'KeyD') { e.preventDefault(); setDir(1, 0); }
+    else if (k === 'p' || k === 'escape' || c === 'KeyP' || c === 'Escape') { e.preventDefault(); togglePause(); }
+    else if ((k === 'r' || c === 'KeyR') && over) { e.preventDefault(); restart(); }
   }
 
   function togglePause() {

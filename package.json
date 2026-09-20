@@ -1,0 +1,15 @@
+{
+  "name": "pixel-nook",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pixel Nook — Swap a cart. Play like it's 1989. Retro cartridge cabinet with Snake, Block Drop, and Maze Munch.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^8.3.0"
+  }
+}

@@ -186,8 +186,9 @@ function startGame(id) {
 
   currentGame = meta.factory(canvas, hooks);
 
-  keyHandler = (e) => currentGame?.onKey(e);
-  window.addEventListener('keydown', keyHandler);
+  keyHandler = (e) => currentGame?.onKey?.(e);
+  // capture:true so Arrow keys aren't lost when a button has focus (macOS Chrome)
+  window.addEventListener('keydown', keyHandler, { capture: true });
 
   app.querySelector('#backBtn').addEventListener('click', () => { sfx.blip(); renderHome(); });
   app.querySelector('#muteBtn').addEventListener('click', () => {
@@ -210,15 +211,17 @@ function startGame(id) {
   });
 
   // Tap/click anywhere (not on UI buttons):
-  // Snake = one left turn; Block Drop = one rotate
+  // Snake = one left turn; Block Drop = one rotate (same gesture)
   if (id === 'snake' || id === 'blockdrop') {
     const playFrame = app.querySelector('#playFrame');
-    playFrame?.addEventListener('pointerdown', (e) => {
+    const onTap = (e) => {
       if (e.target.closest('button')) return;
       e.preventDefault();
-      if (id === 'snake') currentGame?.turnLeft?.();
-      else currentGame?.action?.(); // Block Drop rotateCW
-    });
+      currentGame?.turnLeft?.();
+    };
+    playFrame?.addEventListener('pointerdown', onTap);
+    // Also bind canvas directly (some browsers focus quirks)
+    canvas.addEventListener('pointerdown', onTap);
   }
   const act = app.querySelector('#actionBtn');
   act.addEventListener('pointerdown', (e) => {
@@ -237,7 +240,7 @@ function startGame(id) {
 function teardownGame() {
   if (raf) cancelAnimationFrame(raf);
   raf = 0;
-  if (keyHandler) window.removeEventListener('keydown', keyHandler);
+  if (keyHandler) window.removeEventListener('keydown', keyHandler, { capture: true });
   keyHandler = null;
   currentGame?.destroy?.();
   currentGame = null;

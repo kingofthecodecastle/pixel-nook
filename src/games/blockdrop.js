@@ -309,11 +309,17 @@ export function createBlockDrop(canvas, hooks) {
   }
 
   reset();
+  function turnLeft() {
+    // Same gesture as Snake tap: one discrete transform per tap
+    rotateCW();
+  }
+
   return {
     update,
     onKey,
     setDir,
     action: rotateCW,
+    turnLeft,
     hardDrop,
     togglePause,
     restart,

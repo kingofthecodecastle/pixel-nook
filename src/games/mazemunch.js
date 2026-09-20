@@ -301,14 +301,22 @@ export function createMazeMunch(canvas, hooks) {
   }
 
   function onKey(e) {
-    const k = (e.key || '').toLowerCase();
     const c = e.code || '';
-    if (k === 'arrowup' || k === 'w' || c === 'ArrowUp' || c === 'KeyW') { e.preventDefault(); setDir(0, -1); }
-    else if (k === 'arrowdown' || k === 's' || c === 'ArrowDown' || c === 'KeyS') { e.preventDefault(); setDir(0, 1); }
-    else if (k === 'arrowleft' || k === 'a' || c === 'ArrowLeft' || c === 'KeyA') { e.preventDefault(); setDir(-1, 0); }
-    else if (k === 'arrowright' || k === 'd' || c === 'ArrowRight' || c === 'KeyD') { e.preventDefault(); setDir(1, 0); }
-    else if (k === 'p' || k === 'escape' || c === 'KeyP' || c === 'Escape') { e.preventDefault(); togglePause(); }
-    else if ((k === 'r' || c === 'KeyR') && over) { e.preventDefault(); restart(); }
+    const k = (e.key || '').toLowerCase();
+    // Prefer e.code (stable on macOS); also accept key / WASD
+    if (c === 'ArrowUp' || c === 'KeyW' || k === 'arrowup' || k === 'w') {
+      e.preventDefault(); e.stopPropagation(); setDir(0, -1);
+    } else if (c === 'ArrowDown' || c === 'KeyS' || k === 'arrowdown' || k === 's') {
+      e.preventDefault(); e.stopPropagation(); setDir(0, 1);
+    } else if (c === 'ArrowLeft' || c === 'KeyA' || k === 'arrowleft' || k === 'a') {
+      e.preventDefault(); e.stopPropagation(); setDir(-1, 0);
+    } else if (c === 'ArrowRight' || c === 'KeyD' || k === 'arrowright' || k === 'd') {
+      e.preventDefault(); e.stopPropagation(); setDir(1, 0);
+    } else if (c === 'KeyP' || c === 'Escape' || k === 'p' || k === 'escape') {
+      e.preventDefault(); togglePause();
+    } else if ((c === 'KeyR' || k === 'r') && over) {
+      e.preventDefault(); restart();
+    }
   }
 
   function togglePause() {

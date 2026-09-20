@@ -53,7 +53,7 @@ export function createMazeMunch(canvas, hooks) {
     dotsLeft = countDots(map);
     // Open horizontal corridor — start moving so controls feel alive
     player = { x: 9, y: 19, dx: -1, dy: 0, ndx: -1, ndy: 0 };
-    ghost = { x: 9, y: 9, dx: 0, dy: -1 };
+    ghost = { x: 9, y: 9, dx: 0, dy: -1, ndx: 0, ndy: 0 };
     score = 0;
     lives = 3;
     alive = true;
@@ -71,13 +71,14 @@ export function createMazeMunch(canvas, hooks) {
 
   function respawn() {
     player = { x: 9, y: 19, dx: -1, dy: 0, ndx: -1, ndy: 0 };
-    ghost = { x: 9, y: 9, dx: 0, dy: -1 };
+    ghost = { x: 9, y: 9, dx: 0, dy: -1, ndx: 0, ndy: 0 };
     moveAcc = 0;
     ghostAcc = 0;
     last = performance.now();
   }
 
   function canWalk(x, y) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
     if (y < 0 || y >= ROWS) return false;
     // tunnel wrap
     if (x < 0 || x >= COLS) return true;
@@ -96,6 +97,8 @@ export function createMazeMunch(canvas, hooks) {
   }
 
   function tryTurn(ent) {
+    // Ghost has no ndx/ndy — must not treat undefined as a turn (was NaN-crashing the loop)
+    if (ent.ndx == null || ent.ndy == null) return;
     if (ent.ndx === 0 && ent.ndy === 0) return;
     const nx = ent.x + ent.ndx;
     const ny = ent.y + ent.ndy;

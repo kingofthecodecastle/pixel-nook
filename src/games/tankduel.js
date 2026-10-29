@@ -1,5 +1,6 @@
 import { makeGame, rand, randi, clamp } from './kit.js';
 import { getSkin } from '../progress.js';
+import { emit } from '../fx.js';
 
 const CS = 32, GC = 10, GR = 8, WT = 4;
 const W = CS * GC, H = CS * GR;
@@ -190,7 +191,7 @@ export function createTankDuel(canvas, hooks) {
     const bx = t.x + Math.cos(t.a) * 12, by = t.y + Math.sin(t.a) * 12;
     if (blocked(s, bx, by) && s.maze.rects.some((R) => circleHits(bx, by, 2, R))) return;
     s.bullets.push({ x: bx, y: by, vx: Math.cos(t.a) * 150, vy: Math.sin(t.a) * 150, life: 5, bounces: 0, owner: t, age: 0 });
-    g.sfx.shoot();
+    emit('shoot', bx, by);
   }
 
   function clearShot(s, a, b) {
@@ -286,7 +287,7 @@ export function createTankDuel(canvas, hooks) {
     const winner = victim === a ? b : a;
     winner.pts += 1;
     g.extra(s.mode === 1 ? 'CPU' : 'P2', b.pts);
-    g.sfx.explode();
+    emit('boom', victim.x, victim.y, { color: victim.color, scale: 1.3 });
     g.flash(winner === a ? 'eat' : 'die');
     if (s.mode === 1 && winner === a) g.add(100);
     if (s.mode === 2 && winner === a) g.add(1);

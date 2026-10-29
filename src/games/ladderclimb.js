@@ -1,4 +1,5 @@
 import { makeGame, sprite, clamp, overlap } from './kit.js';
+import { emit } from '../fx.js';
 
 const W = 320, H = 400;
 const FLOOR_Y = [384, 316, 248, 180, 112, 52];
@@ -27,7 +28,7 @@ export function createLadderClimb(canvas, hooks) {
       if (p.state !== 'ground') return;
       const nearUp = ladderAt(p, p.floor, 'up');
       if (name === 'action' || (name === 'up' && !nearUp)) {
-        p.state = 'jump'; p.vy = -205; g.sfx.jump();
+        p.state = 'jump'; p.vy = -205; emit('jump', p.x + p.w / 2, p.y + p.h);
       }
     },
     update(dt, g) {
@@ -109,7 +110,7 @@ export function createLadderClimb(canvas, hooks) {
         const bb = { x: b.x + 2, y: b.y + 2, w: b.w - 4, h: b.h - 4 };
         if (overlap(hb, bb)) { die(g); return; }
         if (p.state === 'jump' && !b.jumped && b.floor === p.floor && Math.abs(b.x + b.w / 2 - (p.x + p.w / 2)) < 10 && p.y + p.h < b.y + 2) {
-          b.jumped = true; g.add(100); g.sfx.eat(); g.flash('eat');
+          b.jumped = true; g.add(100); emit('coin', b.x + b.w / 2, b.y); g.flash('eat');
         }
       }
       s.barrels = s.barrels.filter((b) => !b.dead);
@@ -186,13 +187,14 @@ export function createLadderClimb(canvas, hooks) {
 
   function die(g) {
     g.s.dying = 1;
+    emit('hit', g.s.p.x + g.s.p.w / 2, g.s.p.y + g.s.p.h / 2);
     if (!g.hit()) g.note('Bonk!');
   }
 
   function win(g) {
     const s = g.s;
     g.add(1000 + s.bonus);
-    g.sfx.level();
+    emit('level', W / 2, H / 4);
     g.flash('clear');
     s.level += 1;
     g.note(`Level ${s.level}`);

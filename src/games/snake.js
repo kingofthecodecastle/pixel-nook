@@ -1,4 +1,5 @@
 import { sfx } from '../audio.js';
+import { emit } from '../fx.js';
 import { saveHighScore, getHighScores } from '../storage.js';
 import { getSkin } from '../progress.js';
 
@@ -69,7 +70,7 @@ export function createSnake(canvas, hooks) {
     if (head.x === food.x && head.y === food.y) {
       score += 10;
       tickMs = Math.max(70, tickMs - 4);
-      sfx.eat();
+      emit('eat', food.x * CELL + CELL / 2, food.y * CELL + CELL / 2, { color: '#ff4d6d' });
       flash = 8;
       hooks.onFlash?.('eat');
       hooks.onScore(score);
@@ -83,7 +84,7 @@ export function createSnake(canvas, hooks) {
   function die() {
     alive = false;
     over = true;
-    sfx.die();
+    emit('boom', snake[0].x * CELL + CELL / 2, snake[0].y * CELL + CELL / 2, { sound: 'die' });
     hooks.onFlash?.('die');
     hooks.onStatus('Game Over');
     saveHighScore('snake', score);

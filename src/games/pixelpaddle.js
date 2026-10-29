@@ -1,4 +1,5 @@
 import { makeGame, clamp, rand } from './kit.js';
+import { emit } from '../fx.js';
 
 const W = 320, H = 256, PH = 40, PW = 6, WIN = 7;
 
@@ -66,7 +67,7 @@ export function createPixelPaddle(canvas, hooks) {
         b.vy = Math.sin(ang) * sp;
         s.rally += 1;
         s.cpuErr = rand(-PH * 0.45, PH * 0.45);
-        g.sfx.bounce();
+        emit('bounce', b.x, b.y, { scale: 1.5 });
         return true;
       };
       if (b.vx < 0 && b.x <= L.x + PW && b.x >= L.x - 4) {
@@ -135,7 +136,7 @@ export function createPixelPaddle(canvas, hooks) {
     s[who].pts += 1;
     if (who === 'left') { if (s.mode === 1) g.add(100); else g.add(1); }
     g.extra(s.mode === 1 ? 'CPU' : 'P2', s.right.pts);
-    g.sfx.eat();
+    emit(who === 'left' ? 'powerup' : 'hit', who === 'left' ? W - 20 : 20, H / 2, { sound: who === 'left' ? 'coin' : 'hit' });
     g.flash(who === 'left' ? 'eat' : 'die');
     s.server = who === 'left' ? 1 : -1;
     s.ball.vx = 0; s.ball.vy = 0; s.ball.x = W / 2; s.ball.y = H / 2;

@@ -1,4 +1,5 @@
 import { makeGame, rand, randi, overlap, clamp } from './kit.js';
+import { emit } from '../fx.js';
 
 const W = 320, H = 420;
 const RL = 40, RR = 280, LANES = 4, LW = (RR - RL) / LANES;
@@ -64,6 +65,7 @@ export function createNeonRacer(canvas, hooks) {
         if (!t.passed && t.y > car.y + car.h) { t.passed = true; g.add(20); g.sfx.move(); }
         if (s.inv <= 0 && overlap({ x: car.x + 2, y: car.y + 2, w: car.w - 4, h: car.h - 4 }, t)) {
           t.dead = true;
+          emit('boom', car.x + car.w / 2, car.y, { scale: 1.1 });
           if (!g.hit()) { s.inv = 2; s.speed *= 0.5; s.base = Math.max(220, s.base * 0.85); }
           return;
         }

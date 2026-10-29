@@ -1,4 +1,5 @@
 import { sfx } from '../audio.js';
+import { emit } from '../fx.js';
 import { saveHighScore, getHighScores } from '../storage.js';
 
 const COLS = 10;
@@ -108,9 +109,10 @@ export function createBlockDrop(canvas, hooks) {
   }
 
   function clearLines() {
-    let cleared = 0;
+    let cleared = 0, clearY = 0;
     for (let y = ROWS - 1; y >= 0; y--) {
       if (grid[y].every((c) => c)) {
+        clearY = Math.max(clearY, y);
         grid.splice(y, 1);
         grid.unshift(Array(COLS).fill(null));
         cleared++;
@@ -125,9 +127,9 @@ export function createBlockDrop(canvas, hooks) {
       if (newLevel > level) {
         level = newLevel;
         dropMs = Math.max(100, 700 - (level - 1) * 60);
-        sfx.level();
+        emit('level', canvas.width / 2, clearY * CELL);
       } else {
-        sfx.clear();
+        emit('clear', canvas.width / 2, clearY * CELL, { scale: 0.6 + cleared * 0.2 });
       }
       flash = 12;
       hooks.onFlash?.('clear');
@@ -165,7 +167,7 @@ export function createBlockDrop(canvas, hooks) {
       score += 2;
     }
     hooks.onScore(score);
-    sfx.drop();
+    emit('land', (piece.x + 1.5) * CELL, (piece.y + 2) * CELL, { sound: 'drop', scale: 0.5 });
     lock();
   }
 

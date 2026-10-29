@@ -1,4 +1,5 @@
 import { makeGame, rand } from './kit.js';
+import { emit } from '../fx.js';
 
 const W = 320, H = 360;
 const SIZES = { 3: { r: 26, pts: 20, v: 40 }, 2: { r: 15, pts: 50, v: 65 }, 1: { r: 8, pts: 100, v: 95 } };
@@ -57,7 +58,7 @@ export function createAsteroidDrift(canvas, hooks) {
           if (b.life > 0 && dist2(b, r) < R * R) {
             b.life = 0; r.dead = true;
             g.add(SIZES[r.size].pts);
-            g.sfx.explode();
+            emit(r.size > 1 ? 'boom' : 'explode', r.x, r.y, { scale: 0.6 + r.size * 0.25 });
             burst(s, r.x, r.y, '#d4c4a8', 8);
             if (r.size > 1) for (let i = 0; i < 2; i++) born.push(makeRock(r.size - 1, r.x, r.y, s.wave));
             break;
@@ -65,6 +66,7 @@ export function createAsteroidDrift(canvas, hooks) {
         }
         if (!r.dead && s.respawn <= 0 && s.inv <= 0 && dist2(sh, r) < (R + 7) * (R + 7)) {
           burst(s, sh.x, sh.y, '#33ff66', 16);
+          emit('boom', sh.x, sh.y, { color: '#33ff66', scale: 1.2 });
           if (!g.hit()) { s.respawn = 1.2; }
           else s.respawn = 999;
           sh.x = -999;
@@ -73,7 +75,7 @@ export function createAsteroidDrift(canvas, hooks) {
       s.rocks = s.rocks.filter((r) => !r.dead).concat(born);
       if (!s.rocks.length) {
         g.add(200 * s.wave);
-        g.sfx.level();
+        emit('level', W / 2, H / 2);
         g.flash('clear');
         nextWave(g);
       }
@@ -154,7 +156,7 @@ export function createAsteroidDrift(canvas, hooks) {
     if (s.cool > 0 || s.respawn > 0 || s.shots.length >= 6) return;
     s.cool = 0.2;
     s.shots.push({ x: sh.x + Math.cos(sh.a) * 11, y: sh.y + Math.sin(sh.a) * 11, vx: sh.vx + Math.cos(sh.a) * 300, vy: sh.vy + Math.sin(sh.a) * 300, life: 0.9 });
-    g.sfx.shoot();
+    emit('shoot', g.s.ship.x, g.s.ship.y);
   }
 
   function burst(s, x, y, c, n) {

@@ -1,5 +1,6 @@
 import { makeGame, sprite } from './kit.js';
 import { getSkin } from '../progress.js';
+import { emit } from '../fx.js';
 
 const C = 32, COLS = 10, ROWS = 13;
 const W = C * COLS, H = C * ROWS;
@@ -198,7 +199,9 @@ export function createFrogHop(canvas, hooks) {
   function die(g, why, kind = 'hit') {
     g.s.dead = 0.9;
     g.s.deathKind = kind;
-    if (kind === 'water') g.sfx.splash();
+    const fr = g.s.frog;
+    if (kind === 'water') emit('splash', fr.x + C / 2, fr.row * C + C / 2);
+    else emit('hit', fr.x + C / 2, fr.row * C + C / 2);
     if (!g.hit()) g.note(why);
   }
 
@@ -209,14 +212,14 @@ export function createFrogHop(canvas, hooks) {
     if (i < 0 || s.homes[i]) { die(g, 'Missed!'); return; }
     s.homes[i] = true;
     g.add(50 + Math.ceil(s.timer) * 5);
-    g.sfx.clear();
+    emit('powerup', cx, f.row * C + C / 2, { sound: 'clear' });
     g.flash('eat');
     if (s.homes.every(Boolean)) {
       g.add(500);
       s.level += 1;
       s.homes = HOMES.map(() => false);
       buildLanes(g);
-      g.sfx.level();
+      emit('level', W / 2, H / 2);
       g.flash('clear');
       g.note(`Level ${s.level}`);
     }

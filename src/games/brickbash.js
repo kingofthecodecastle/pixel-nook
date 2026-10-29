@@ -1,4 +1,5 @@
 import { makeGame, rand, overlap, clamp } from './kit.js';
+import { emit } from '../fx.js';
 
 const W = 320, H = 400;
 const COLS = 10, BW = 30, BH = 12, TOP = 48;
@@ -57,7 +58,7 @@ export function createBrickBash(canvas, hooks) {
             b.vx = Math.sin(ang) * sp;
             b.vy = -Math.cos(ang) * sp;
             b.y = p.y - b.h;
-            g.sfx.bounce();
+            emit('bounce', b.x, b.y);
           }
           for (const br of s.bricks) {
             if (br.dead || !overlap(b, br)) continue;
@@ -68,7 +69,7 @@ export function createBrickBash(canvas, hooks) {
             if (br.hp <= 0) {
               br.dead = true;
               g.add(br.pts);
-              g.sfx.eat();
+              emit('brick', br.x + br.w / 2, br.y + br.h / 2, { color: br.color });
               if (Math.random() < 0.16) {
                 const keys = Object.keys(POWERS);
                 s.caps.push({ x: br.x + 7, y: br.y, w: 16, h: 9, kind: keys[(Math.random() * keys.length) | 0] });
@@ -88,7 +89,7 @@ export function createBrickBash(canvas, hooks) {
         c.y += 90 * dt;
         if (overlap(c, p)) {
           c.dead = true;
-          g.sfx.level();
+          emit('powerup', c.x + c.w / 2, c.y);
           g.flash('eat');
           if (c.kind === 'W') { s.wide = 12; g.note('Wide paddle!'); }
           if (c.kind === 'S') { s.slow = 9; g.note('Slow ball!'); }
@@ -109,12 +110,13 @@ export function createBrickBash(canvas, hooks) {
       s.caps = s.caps.filter((c) => !c.dead);
 
       if (!s.balls.length) {
+        emit('hit', p.x + p.w / 2, p.y, { sound: 'hit' });
         if (!g.hit()) { s.wide = 0; s.slow = 0; s.caps = []; serve(g); }
         return;
       }
       if (s.bricks.every((b) => b.dead || b.hp > 9)) {
         g.add(250 * s.level);
-        g.sfx.clear();
+        emit('clear', W / 2, H / 3);
         g.flash('clear');
         nextLevel(g);
       }

@@ -1,5 +1,6 @@
 import { makeGame, rand, clamp } from './kit.js';
 import { getSkin } from '../progress.js';
+import { emit } from '../fx.js';
 
 const W = 320, H = 400;
 
@@ -51,13 +52,14 @@ export function createMoonDrop(canvas, hooks) {
           sh.y = s.pad.y - 8; sh.vx = sh.vy = 0; sh.thrust = false;
           const pts = (100 + Math.round(s.fuel) * 2) * s.pad.mult;
           g.add(pts);
-          g.sfx.level();
+          emit('land', sh.x, sh.y + 8);
           g.flash('clear');
           g.note(`Landed! +${pts}`);
           s.landed = true; s.wait = 1.6;
         } else {
           for (let i = 0; i < 24; i++) { const a = rand(0, 6.28), v = rand(20, 110); s.parts.push({ x: sh.x, y: sh.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 40, life: rand(0.4, 1), c: i % 2 ? '#d4c4a8' : '#ff4d6d' }); }
           s.crashed = true; s.landed = false; s.wait = 1.4;
+          emit('boom', sh.x, sh.y, { scale: 1.3 });
           g.hit();
         }
       }

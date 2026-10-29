@@ -1,5 +1,6 @@
 import { makeGame, sprite, rand, overlap } from './kit.js';
 import { getSkin } from '../progress.js';
+import { emit } from '../fx.js';
 
 const W = 320, H = 400;
 const ALIEN_A = ['..1111..', '.111111.', '11.11.11', '11111111', '.1.11.1.', '1......1'];
@@ -72,7 +73,7 @@ export function createStarBlaster(canvas, hooks) {
           if (!a.dead && overlap(b, a)) {
             a.dead = true; b.dead = true;
             g.add(a.pts);
-            g.sfx.explode();
+            emit('explode', a.x + a.w / 2, a.y + a.h / 2, { color: a.color, scale: 0.8 });
             s.booms.push({ x: a.x + a.w / 2, y: a.y + a.h / 2, t: 0.3, c: a.color });
             break;
           }
@@ -89,7 +90,7 @@ export function createStarBlaster(canvas, hooks) {
 
       if (!alive.some((a) => !a.dead)) {
         g.add(100 * s.wave);
-        g.sfx.level();
+        emit('level', W / 2, H / 2);
         g.flash('clear');
         nextWave(g);
       }
@@ -134,12 +135,13 @@ export function createStarBlaster(canvas, hooks) {
     if (s.cool > 0 || s.shots.length >= 3) return;
     s.cool = 0.28;
     s.shots.push({ x: s.ship.x + s.ship.w / 2 - 1, y: s.ship.y - 6, w: 3, h: 9 });
-    g.sfx.shoot();
+    emit('shoot', s.ship.x + s.ship.w / 2, s.ship.y);
   }
 
   function shipHit(g) {
     const s = g.s;
     s.booms.push({ x: s.ship.x + 13, y: s.ship.y + 8, t: 0.3, c: '#33ff66' });
+    emit('boom', s.ship.x + 13, s.ship.y + 8, { color: '#33ff66', scale: 1.2 });
     if (!g.hit()) s.inv = 2;
   }
 

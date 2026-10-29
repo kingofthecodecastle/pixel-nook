@@ -1,4 +1,5 @@
 import { sfx } from '../audio.js';
+import { emit } from '../fx.js';
 import { saveHighScore, getHighScores } from '../storage.js';
 
 // 1 = wall, 0 = dot, 2 = empty (no dot), 3 = power-ish empty start
@@ -151,7 +152,7 @@ export function createMazeMunch(canvas, hooks) {
       map[player.y][player.x] = 2;
       dotsLeft--;
       score += 10;
-      sfx.eat();
+      emit('eat', player.x * CELL + CELL / 2, player.y * CELL + CELL / 2, { scale: 0.5 });
       flash = 4;
       hooks.onFlash?.('eat');
       hooks.onScore(score);
@@ -160,7 +161,7 @@ export function createMazeMunch(canvas, hooks) {
         score += 500;
         map = cloneMaze();
         dotsLeft = countDots(map);
-        sfx.level();
+        emit('level', canvas.width / 2, canvas.height / 2);
         hooks.onScore(score);
         hooks.onFlash?.('clear');
         flash = 14;
@@ -171,7 +172,7 @@ export function createMazeMunch(canvas, hooks) {
   function checkHit() {
     if (player.x === ghost.x && player.y === ghost.y) {
       lives--;
-      sfx.die();
+      emit('boom', player.x * CELL + CELL / 2, player.y * CELL + CELL / 2, { sound: 'die', color: '#ffd84d' });
       hooks.onFlash?.('die');
       hooks.onExtra?.({ lives });
       flash = 16;

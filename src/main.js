@@ -4,6 +4,13 @@ import { getHighScores } from './storage.js';
 import { createSnake } from './games/snake.js';
 import { createBlockDrop } from './games/blockdrop.js';
 import { createMazeMunch } from './games/mazemunch.js';
+import { createStarBlaster } from './games/starblaster.js';
+import { createBrickBash } from './games/brickbash.js';
+import { createFrogHop } from './games/froghop.js';
+import { createAsteroidDrift } from './games/asteroiddrift.js';
+import { createPixelPaddle } from './games/pixelpaddle.js';
+import { createLadderClimb } from './games/ladderclimb.js';
+import { createNeonRacer } from './games/neonracer.js';
 
 const GAMES = {
   snake: {
@@ -36,12 +43,83 @@ const GAMES = {
     factory: createMazeMunch,
     extraLabel: 'LIVES',
   },
+  starblaster: {
+    id: 'starblaster',
+    title: 'STAR BLASTER',
+    year: "'82",
+    color: '#0984e3',
+    accent: '#74b9ff',
+    blurb: 'Blast the swarm. Hold the line.',
+    factory: createStarBlaster,
+    extraLabel: 'LIVES',
+  },
+  brickbash: {
+    id: 'brickbash',
+    title: 'BRICK BASH',
+    year: "'86",
+    color: '#d63031',
+    accent: '#fab1a0',
+    blurb: 'Bounce. Smash. Grab power-ups.',
+    factory: createBrickBash,
+    extraLabel: 'LIVES',
+  },
+  froghop: {
+    id: 'froghop',
+    title: 'FROG HOP',
+    year: "'84",
+    color: '#00b894',
+    accent: '#55efc4',
+    blurb: 'Dodge cars. Ride logs. Get home.',
+    factory: createFrogHop,
+    extraLabel: 'LIVES',
+  },
+  asteroiddrift: {
+    id: 'asteroiddrift',
+    title: 'ASTEROID DRIFT',
+    year: "'81",
+    color: '#636e72',
+    accent: '#dfe6e9',
+    blurb: 'Drift. Shoot. Rocks split.',
+    factory: createAsteroidDrift,
+    extraLabel: 'LIVES',
+  },
+  pixelpaddle: {
+    id: 'pixelpaddle',
+    title: 'PIXEL PADDLE',
+    year: "'79",
+    color: '#2d3436',
+    accent: '#33ff66',
+    blurb: 'Table tennis. CPU or a friend.',
+    factory: createPixelPaddle,
+    extraLabel: 'CPU',
+  },
+  ladderclimb: {
+    id: 'ladderclimb',
+    title: 'LADDER CLIMB',
+    year: "'83",
+    color: '#e84393',
+    accent: '#fd79a8',
+    blurb: 'Climb. Jump barrels. Reach top.',
+    factory: createLadderClimb,
+    extraLabel: 'LIVES',
+  },
+  neonracer: {
+    id: 'neonracer',
+    title: 'NEON RACER',
+    year: "'88",
+    color: '#6c00b8',
+    accent: '#ff2fd0',
+    blurb: 'Endless road. Swerve. Go fast.',
+    factory: createNeonRacer,
+    extraLabel: 'LIVES',
+  },
 };
 
 const app = document.querySelector('#app');
 let currentGame = null;
 let raf = 0;
 let keyHandler = null;
+let keyUpHandler = null;
 let screenFlashEl = null;
 
 function hsList(id) {
@@ -77,7 +155,7 @@ function renderHome() {
       </div>
       <footer class="home-foot">
         <button type="button" class="btn chunky mute-btn" id="muteBtn">${isMuted() ? '🔇 MUTED' : '🔊 SOUND'}</button>
-        <p class="hint">Arrows / WASD · P pause · R restart</p>
+        <p class="hint">Arrows / WASD · Space fire/jump · P pause · R restart</p>
       </footer>
     </div>
   `;
@@ -164,6 +242,10 @@ function startGame(id) {
         wrap.style.display = '';
         lbl.textContent = 'LIVES';
         el.textContent = '❤'.repeat(Math.max(0, data.lives)) || '0';
+      } else if (data.label != null) {
+        wrap.style.display = '';
+        lbl.textContent = data.label;
+        el.textContent = String(data.value);
       }
     },
     onFlash(kind) {
@@ -189,6 +271,9 @@ function startGame(id) {
   keyHandler = (e) => currentGame?.onKey?.(e);
   // capture:true so Arrow keys aren't lost when a button has focus (macOS Chrome)
   window.addEventListener('keydown', keyHandler, { capture: true });
+  // Held-input games (Cabinet 2) also listen for key releases
+  keyUpHandler = (e) => currentGame?.onKeyUp?.(e);
+  window.addEventListener('keyup', keyUpHandler, { capture: true });
 
   app.querySelector('#backBtn').addEventListener('click', () => { sfx.blip(); renderHome(); });
   app.querySelector('#muteBtn').addEventListener('click', () => {
@@ -208,6 +293,11 @@ function startGame(id) {
       currentGame?.setDir(+btn.dataset.dx, +btn.dataset.dy);
     };
     btn.addEventListener('pointerdown', fire);
+    // Release for held-input games (no-op for the original three carts)
+    const rel = () => currentGame?.release?.(+btn.dataset.dx, +btn.dataset.dy);
+    btn.addEventListener('pointerup', rel);
+    btn.addEventListener('pointercancel', rel);
+    btn.addEventListener('pointerleave', rel);
   });
 
   // Tap/click anywhere (not on UI buttons):
@@ -229,6 +319,10 @@ function startGame(id) {
     if (currentGame?.hardDrop) currentGame.hardDrop();
     else if (currentGame?.action) currentGame.action();
   });
+  const actUp = () => currentGame?.actionUp?.();
+  act.addEventListener('pointerup', actUp);
+  act.addEventListener('pointercancel', actUp);
+  act.addEventListener('pointerleave', actUp);
 
   const loop = (now) => {
     currentGame?.update(now);
@@ -242,6 +336,8 @@ function teardownGame() {
   raf = 0;
   if (keyHandler) window.removeEventListener('keydown', keyHandler, { capture: true });
   keyHandler = null;
+  if (keyUpHandler) window.removeEventListener('keyup', keyUpHandler, { capture: true });
+  keyUpHandler = null;
   currentGame?.destroy?.();
   currentGame = null;
 }

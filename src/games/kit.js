@@ -82,7 +82,7 @@ export function makeGame(canvas, hooks, spec) {
       hooks.onFlash?.('die');
       hooks.onStatus('Game Over');
       if (!api.noSave) saveHighScore(spec.id, api.score);
-      hooks.onGameOver?.(api.score, getHighScores(spec.id));
+      hooks.onGameOver?.(api.score, getHighScores(spec.id), { noSave: api.noSave });
     },
     text(str, x, y, size = 8, color = '#fff', align = 'center') {
       ctx.font = `${size}px ${FONT}`;

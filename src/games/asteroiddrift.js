@@ -57,7 +57,7 @@ export function createAsteroidDrift(canvas, hooks) {
           if (b.life > 0 && dist2(b, r) < R * R) {
             b.life = 0; r.dead = true;
             g.add(SIZES[r.size].pts);
-            g.sfx.eat();
+            g.sfx.explode();
             burst(s, r.x, r.y, '#d4c4a8', 8);
             if (r.size > 1) for (let i = 0; i < 2; i++) born.push(makeRock(r.size - 1, r.x, r.y, s.wave));
             break;
@@ -154,7 +154,7 @@ export function createAsteroidDrift(canvas, hooks) {
     if (s.cool > 0 || s.respawn > 0 || s.shots.length >= 6) return;
     s.cool = 0.2;
     s.shots.push({ x: sh.x + Math.cos(sh.a) * 11, y: sh.y + Math.sin(sh.a) * 11, vx: sh.vx + Math.cos(sh.a) * 300, vy: sh.vy + Math.sin(sh.a) * 300, life: 0.9 });
-    g.sfx.blip();
+    g.sfx.shoot();
   }
 
   function burst(s, x, y, c, n) {

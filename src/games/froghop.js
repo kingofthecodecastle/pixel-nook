@@ -1,4 +1,5 @@
 import { makeGame, sprite } from './kit.js';
+import { getSkin } from '../progress.js';
 
 const C = 32, COLS = 10, ROWS = 13;
 const W = C * COLS, H = C * ROWS;
@@ -87,7 +88,7 @@ export function createFrogHop(canvas, hooks) {
         ctx.fillRect(col * C, 4, C, C - 4);
         ctx.fillStyle = '#33ff66';
         ctx.fillRect(col * C + 6, 12, C - 12, C - 16);
-        if (s.homes[i]) sprite(ctx, FROG, col * C + 4, 4, 3, { 1: '#7CFC00', 2: '#111' });
+        if (s.homes[i]) sprite(ctx, FROG, col * C + 4, 4, 3, { 1: getSkin('froghop')?.body || '#7CFC00', 2: '#111' });
       });
       // median + start
       ctx.fillStyle = '#5c3d8a';
@@ -132,7 +133,7 @@ export function createFrogHop(canvas, hooks) {
         if (p < 0.3) {
           const k = 1 - p / 0.3;
           ctx.globalAlpha = k;
-          sprite(ctx, FROG, f.x + 4 + (1 - k) * 6, f.row * C + 5 + (1 - k) * 8, 3 * Math.max(0.4, k), { 1: '#7CFC00', 2: '#111' });
+          sprite(ctx, FROG, f.x + 4 + (1 - k) * 6, f.row * C + 5 + (1 - k) * 8, 3 * Math.max(0.4, k), { 1: getSkin('froghop')?.body || '#7CFC00', 2: '#111' });
           ctx.globalAlpha = 1;
         }
         ctx.strokeStyle = '#e0f7ff';
@@ -162,7 +163,7 @@ export function createFrogHop(canvas, hooks) {
         let art = FROG;
         if (f.face === 'down') art = FROG.slice().reverse();
         const lift = f.hop > 0 ? -3 : 0;
-        sprite(ctx, art, f.x + 4, f.row * C + 5 + lift, 3, { 1: '#7CFC00', 2: '#111' });
+        sprite(ctx, art, f.x + 4, f.row * C + 5 + lift, 3, { 1: getSkin('froghop')?.body || '#7CFC00', 2: '#111' });
       }
       // timer bar
       const frac = Math.max(0, s.timer / s.maxTime);
@@ -197,6 +198,7 @@ export function createFrogHop(canvas, hooks) {
   function die(g, why, kind = 'hit') {
     g.s.dead = 0.9;
     g.s.deathKind = kind;
+    if (kind === 'water') g.sfx.splash();
     if (!g.hit()) g.note(why);
   }
 

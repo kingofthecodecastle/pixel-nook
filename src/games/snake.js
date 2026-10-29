@@ -1,5 +1,6 @@
 import { sfx } from '../audio.js';
 import { saveHighScore, getHighScores } from '../storage.js';
+import { getSkin } from '../progress.js';
 
 const COLS = 16;
 const ROWS = 16;
@@ -114,8 +115,9 @@ export function createSnake(canvas, hooks) {
     ctx.fillRect(food.x * CELL + 3, food.y * CELL + 3, CELL - 6, CELL - 6);
 
     // snake
+    const skin = getSkin('snake');
     snake.forEach((p, i) => {
-      ctx.fillStyle = i === 0 ? '#7CFC00' : '#3cb371';
+      ctx.fillStyle = i === 0 ? (skin?.head || '#7CFC00') : (skin?.body || '#3cb371');
       ctx.fillRect(p.x * CELL + 1, p.y * CELL + 1, CELL - 2, CELL - 2);
       if (i === 0) {
         ctx.fillStyle = '#0d1b0d';

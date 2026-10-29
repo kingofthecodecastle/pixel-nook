@@ -57,7 +57,7 @@ export function createBrickBash(canvas, hooks) {
             b.vx = Math.sin(ang) * sp;
             b.vy = -Math.cos(ang) * sp;
             b.y = p.y - b.h;
-            g.sfx.drop();
+            g.sfx.bounce();
           }
           for (const br of s.bricks) {
             if (br.dead || !overlap(b, br)) continue;

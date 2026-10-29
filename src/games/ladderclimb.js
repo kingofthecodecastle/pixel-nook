@@ -27,7 +27,7 @@ export function createLadderClimb(canvas, hooks) {
       if (p.state !== 'ground') return;
       const nearUp = ladderAt(p, p.floor, 'up');
       if (name === 'action' || (name === 'up' && !nearUp)) {
-        p.state = 'jump'; p.vy = -205; g.sfx.blip();
+        p.state = 'jump'; p.vy = -205; g.sfx.jump();
       }
     },
     update(dt, g) {

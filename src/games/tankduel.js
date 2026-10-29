@@ -1,4 +1,5 @@
 import { makeGame, rand, randi, clamp } from './kit.js';
+import { getSkin } from '../progress.js';
 
 const CS = 32, GC = 10, GR = 8, WT = 4;
 const W = CS * GC, H = CS * GR;
@@ -88,9 +89,9 @@ export function createTankDuel(canvas, hooks) {
       for (const bl of s.bullets) {
         bl.life -= dt;
         bl.x += bl.vx * dt;
-        if (s.maze.rects.some((R) => circleHits(bl.x, bl.y, 2, R))) { bl.x -= bl.vx * dt; bl.vx = -bl.vx; bl.bounces++; g.sfx.click(); }
+        if (s.maze.rects.some((R) => circleHits(bl.x, bl.y, 2, R))) { bl.x -= bl.vx * dt; bl.vx = -bl.vx; bl.bounces++; g.sfx.bounce(); }
         bl.y += bl.vy * dt;
-        if (s.maze.rects.some((R) => circleHits(bl.x, bl.y, 2, R))) { bl.y -= bl.vy * dt; bl.vy = -bl.vy; bl.bounces++; g.sfx.click(); }
+        if (s.maze.rects.some((R) => circleHits(bl.x, bl.y, 2, R))) { bl.y -= bl.vy * dt; bl.vy = -bl.vy; bl.bounces++; g.sfx.bounce(); }
         if (bl.bounces > 5) bl.life = 0;
         for (const t of s.tanks) {
           if (bl.life <= 0 || t.dead) continue;
@@ -148,7 +149,7 @@ export function createTankDuel(canvas, hooks) {
     g.noSave = mode === 2;
     g.extra(mode === 1 ? 'CPU' : 'P2', 0);
     s.tanks = [
-      { color: '#33ff66', dark: '#1b7a33', pts: 0 },
+      { color: '#33ff66', dark: '#1b7a33', ...(getSkin('tankduel') || {}), pts: 0 },
       { color: '#ff4d6d', dark: '#8a1f33', pts: 0 },
     ];
     g.sfx.select();
@@ -189,7 +190,7 @@ export function createTankDuel(canvas, hooks) {
     const bx = t.x + Math.cos(t.a) * 12, by = t.y + Math.sin(t.a) * 12;
     if (blocked(s, bx, by) && s.maze.rects.some((R) => circleHits(bx, by, 2, R))) return;
     s.bullets.push({ x: bx, y: by, vx: Math.cos(t.a) * 150, vy: Math.sin(t.a) * 150, life: 5, bounces: 0, owner: t, age: 0 });
-    g.sfx.blip();
+    g.sfx.shoot();
   }
 
   function clearShot(s, a, b) {
@@ -285,7 +286,7 @@ export function createTankDuel(canvas, hooks) {
     const winner = victim === a ? b : a;
     winner.pts += 1;
     g.extra(s.mode === 1 ? 'CPU' : 'P2', b.pts);
-    g.sfx.clear();
+    g.sfx.explode();
     g.flash(winner === a ? 'eat' : 'die');
     if (s.mode === 1 && winner === a) g.add(100);
     if (s.mode === 2 && winner === a) g.add(1);

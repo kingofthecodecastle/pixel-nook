@@ -1,20 +1,25 @@
 import './style.css';
-import { sfx, isMuted, toggleMute } from './audio.js';
-import { getHighScores } from './storage.js';
+import { sfx, isMuted, toggleMute, startMusic, stopMusic, resumeAudio } from './audio.js';
+import { getHighScores, nameLatest } from './storage.js';
+import { INFO, PAD_COMMON } from './info.js';
+import {
+  ACHIEVEMENTS, THEMES, SKINS, getProgress, onProgress, markPlayed, finishGame, checkDaily, dailyChallenge,
+  buy, setTheme, equipSkin, applyTheme, gameName, unlock,
+} from './progress.js';
+import { fetchAll, fetchGame, submitScore, qualifies, localList, lastInitials, saveInitials, isOnline, cachedGame } from './online.js';
+import { initGamepads } from './gamepad.js';
 import { createSnake } from './games/snake.js';
 import { createBlockDrop } from './games/blockdrop.js';
 import { createMazeMunch } from './games/mazemunch.js';
 import { createStarBlaster } from './games/starblaster.js';
 import { createBrickBash } from './games/brickbash.js';
 import { createFrogHop } from './games/froghop.js';
-import { INFO } from './info.js';
 import { createAsteroidDrift } from './games/asteroiddrift.js';
 import { createPixelPaddle } from './games/pixelpaddle.js';
 import { createLadderClimb } from './games/ladderclimb.js';
 import { createNeonRacer } from './games/neonracer.js';
 import { createMoonDrop } from './games/moondrop.js';
 import { createTankDuel } from './games/tankduel.js';
-
 const GAMES = {
   snake: {
     id: 'snake',
@@ -137,22 +142,61 @@ const GAMES = {
     extraLabel: 'CPU',
   },
 };
-
 const app = document.querySelector('#app');
 let currentGame = null;
+let currentId = null;
 let raf = 0;
 let keyHandler = null;
 let keyUpHandler = null;
 let screenFlashEl = null;
+let lastStatus = 'Playing';
 
-function hsList(id) {
-  const list = getHighScores(id);
-  if (!list.length) return '<li class="empty">— no scores yet —</li>';
-  return list.map((e, i) => `<li><span class="rank">${i + 1}</span><span class="pts">${e.score}</span></li>`).join('');
+const CRT_KEY = 'pixelnook_crt';
+const isCrt = () => localStorage.getItem(CRT_KEY) === '1';
+function applyCrt() { document.documentElement.classList.toggle('crt', isCrt()); }
+applyTheme();
+applyCrt();
+
+function esc(t) { return String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+// —— high-score lists (online first, local fallback) ——
+function rows(list, limit, mark = -1) {
+  if (!list || !list.length) return '<li class="empty">— no scores yet —</li>';
+  return list.slice(0, limit).map((e, i) =>
+    `<li${i === mark ? ' class="me"' : ''}><span class="rank">${i + 1}</span><span class="nm">${esc(e.name || 'YOU')}</span><span class="pts">${e.score}</span></li>`).join('');
 }
+function hsList(id) { const o = cachedGame(id); return rows(o && o.length ? o : localList(id), 5); }
+
+// —— toasts ——
+let toastWrap = null;
+function toast(html, kind = '') {
+  if (!toastWrap) { toastWrap = document.createElement('div'); toastWrap.className = 'toasts'; document.body.appendChild(toastWrap); }
+  const t = document.createElement('div');
+  t.className = 'toast ' + kind;
+  t.innerHTML = html;
+  toastWrap.appendChild(t);
+  while (toastWrap.children.length > 4) toastWrap.firstChild.remove();
+  setTimeout(() => t.classList.add('out'), 2600);
+  setTimeout(() => t.remove(), 3100);
+}
+onProgress((e) => {
+  if (e.type === 'coins' && e.why === 'game') { toast(`+${e.n} 🪙`, 'coin'); sfx.coin(); }
+  if (e.type === 'achievement') { toast(`⭐ MERKE: ${esc(e.a.name)} <small>+25 🪙</small>`, 'ach'); sfx.achieve(); }
+  if (e.type === 'daily') { toast(`★ DAGENS UTFORDRING FULLFØRT! <small>+${e.d.reward} 🪙</small>`, 'daily'); sfx.level(); }
+  const c = document.querySelector('#coinCount');
+  if (c) c.textContent = String(getProgress().coins);
+});
+
+// Unlock audio (and the menu music) on the first real gesture
+const unlockAudio = () => resumeAudio();
+window.addEventListener('pointerdown', unlockAudio, { capture: true });
+window.addEventListener('keydown', unlockAudio, { capture: true });
 
 function renderHome() {
   teardownGame();
+  const d = dailyChallenge();
+  const P = getProgress();
+  const achDone = ACHIEVEMENTS.filter((a) => P.ach[a.id]).length;
   app.innerHTML = `
     <div class="crt-frame home">
       <div class="scanlines"></div>
@@ -161,11 +205,17 @@ function renderHome() {
         <h1>PIXEL NOOK</h1>
         <p class="tagline">Swap a cart. Play like it's 1989.</p>
       </header>
-      <p class="select-label">SELECT CARTRIDGE</p>
+      <div class="meta-row">
+        <p class="select-label">SELECT CARTRIDGE</p>
+        <button type="button" class="daily${d.done ? ' done' : ''}" id="dailyBtn" style="--accent:${GAMES[d.game].accent}" title="Dagens utfordring – lik for alle i dag">
+          <span class="daily-k">★ DAGENS</span><span class="daily-l">${esc(d.label)}</span><span class="daily-r">${d.done ? '✔ FULLFØRT' : `+${d.reward} 🪙`}</span>
+        </button>
+      </div>
       <div class="cart-row" role="list">
         ${Object.values(GAMES).map((g) => `
-          <button class="cart" data-game="${g.id}" role="listitem" style="--cart:${g.color};--accent:${g.accent}">
+          <button class="cart${g.id === d.game ? ' is-daily' : ''}" data-game="${g.id}" role="listitem" style="--cart:${g.color};--accent:${g.accent}">
             <div class="cart-ridge"></div>
+            ${g.id === d.game ? '<span class="cart-daily" title="Dagens utfordring">★</span>' : ''}
             <span class="cart-info" data-info="${g.id}" role="button" tabindex="0" aria-label="Game info: ${g.title}" title="Game info">i</span>
             <div class="cart-label">
               <span class="cart-year">${g.year}</span>
@@ -173,13 +223,20 @@ function renderHome() {
               <span class="cart-blurb">${g.blurb}</span>
             </div>
             <div class="cart-chip"></div>
-            <ol class="cart-hs">${hsList(g.id)}</ol>
+            <ol class="cart-hs" data-hs="${g.id}">${hsList(g.id)}</ol>
           </button>
         `).join('')}
       </div>
       <footer class="home-foot">
-        <button type="button" class="btn chunky mute-btn" id="muteBtn">${isMuted() ? '🔇 MUTED' : '🔊 SOUND'}</button>
-        <p class="hint">Arrows / WASD · Space fire/jump · P pause · R restart</p>
+        <div class="foot-btns">
+          <button type="button" class="btn chunky small mute-btn" id="muteBtn">${isMuted() ? '🔇 MUTED' : '🔊 SOUND'}</button>
+          <button type="button" class="btn chunky small" id="boardBtn">🏆 TOPPLISTE</button>
+          <button type="button" class="btn chunky small" id="shopBtn">🛒 BUTIKK</button>
+          <button type="button" class="btn chunky small" id="achBtn">⭐ ${achDone}/${ACHIEVEMENTS.length}</button>
+          <button type="button" class="btn chunky small${isCrt() ? ' on' : ''}" id="crtBtn" aria-pressed="${isCrt()}">📺 CRT ${isCrt() ? 'PÅ' : 'AV'}</button>
+          <span class="coins" title="Mynter">🪙 <span id="coinCount">${P.coins}</span></span>
+        </div>
+        <p class="hint">Arrows / WASD · Space fire/jump · P pause · R restart · 🎮 gamepad <span id="netState"></span></p>
       </footer>
     </div>
   `;
@@ -190,15 +247,28 @@ function renderHome() {
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') open(e); });
   });
   app.querySelectorAll('.cart').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      sfx.select();
-      startGame(btn.dataset.game);
-    });
+    btn.addEventListener('click', () => { sfx.select(); startGame(btn.dataset.game); });
   });
-  app.querySelector('#muteBtn').addEventListener('click', () => {
-    toggleMute();
-    sfx.click();
-    renderHome();
+  app.querySelector('#dailyBtn').addEventListener('click', () => { sfx.select(); startGame(d.game); });
+  app.querySelector('#muteBtn').addEventListener('click', () => { toggleMute(); sfx.click(); renderHome(); });
+  app.querySelector('#boardBtn').addEventListener('click', () => { sfx.click(); openBoard(d.game); });
+  app.querySelector('#shopBtn').addEventListener('click', () => { sfx.click(); openShop(); });
+  app.querySelector('#achBtn').addEventListener('click', () => { sfx.click(); openAchievements(); });
+  app.querySelector('#crtBtn').addEventListener('click', () => {
+    localStorage.setItem(CRT_KEY, isCrt() ? '0' : '1');
+    applyCrt(); sfx.click(); renderHome();
+    app.querySelector('#crtBtn')?.focus({ preventScroll: true });
+  });
+
+  startMusic();
+  fetchAll().then((scores) => {
+    const net = app.querySelector('#netState');
+    if (net) net.textContent = scores ? '· 🌐 online toppliste' : '· offline – lokal toppliste';
+    if (!scores) return;
+    app.querySelectorAll('.cart-hs[data-hs]').forEach((ol) => {
+      ol.innerHTML = rows(scores[ol.dataset.hs]?.length ? scores[ol.dataset.hs] : localList(ol.dataset.hs), 5);
+      ol.classList.toggle('online', !!scores[ol.dataset.hs]?.length);
+    });
   });
 }
 
@@ -206,6 +276,9 @@ function startGame(id) {
   const meta = GAMES[id];
   if (!meta) return;
   teardownGame();
+  stopMusic(true);
+  currentId = id;
+  markPlayed(id);
 
   app.innerHTML = `
     <div class="crt-frame play" id="playFrame">
@@ -225,7 +298,7 @@ function startGame(id) {
         <div class="hud-item"><span class="lbl">STATUS</span><span id="statusEl">Playing</span></div>
       </div>
       <div class="canvas-wrap">
-        <canvas id="gameCanvas"></canvas>
+        <div class="screen"><canvas id="gameCanvas"></canvas></div>
       </div>
       <div class="play-actions">
         <button type="button" class="btn chunky small" id="pauseBtn">PAUSE</button>
@@ -243,7 +316,7 @@ function startGame(id) {
         </div>
       </div>
       <div class="hs-panel">
-        <p class="hs-title">TOP 5</p>
+        <p class="hs-title" id="hsTitle">TOPPLISTE</p>
         <ol id="hsLive">${hsList(id)}</ol>
       </div>
     </div>
@@ -251,11 +324,22 @@ function startGame(id) {
 
   screenFlashEl = app.querySelector('#screenFlash');
   const canvas = app.querySelector('#gameCanvas');
+  const noSaveNow = () => !!currentGame?._debug?.()?.noSave;
+  const showBoard = (mark = -1) => {
+    const hs = app.querySelector('#hsLive'), title = app.querySelector('#hsTitle');
+    if (!hs) return;
+    const online = cachedGame(id);
+    const has = online && online.length;
+    title.textContent = has ? '🌐 TOPP 10' : online ? '🌐 TOPP 10 · tom – lokal:' : 'TOP 5 · LOKAL';
+    hs.innerHTML = rows(has ? online : localList(id), has ? 10 : 5, mark);
+  };
+  fetchGame(id).then(() => { if (currentId === id) showBoard(); });
 
   const hooks = {
     onScore(s) {
       const el = app.querySelector('#scoreEl');
       if (el) el.textContent = String(s);
+      if (s > 0) checkDaily(id, s, noSaveNow());
     },
     onStatus(t) {
       lastStatus = t;
@@ -285,24 +369,27 @@ function startGame(id) {
       if (!screenFlashEl) return;
       screenFlashEl.className = 'screen-flash show ' + kind;
       clearTimeout(screenFlashEl._t);
-      screenFlashEl._t = setTimeout(() => {
-        screenFlashEl.className = 'screen-flash';
-      }, 180);
+      screenFlashEl._t = setTimeout(() => { screenFlashEl.className = 'screen-flash'; }, 180);
     },
-    onGameOver(score, list) {
-      const hs = app.querySelector('#hsLive');
-      if (hs) {
-        hs.innerHTML = list.map((e, i) =>
-          `<li><span class="rank">${i + 1}</span><span class="pts">${e.score}</span></li>`
-        ).join('') || '<li class="empty">—</li>';
-      }
+    onGameOver(score, _list, opts = {}) {
+      const noSave = !!opts.noSave;
+      checkDaily(id, score, noSave);
+      finishGame(id, score, { noSave });
+      showBoard();
+      if (noSave || score <= 0) return;
+      const game = currentGame;
+      setTimeout(() => {
+        if (currentGame !== game || modalEl) return;
+        if (isOnline() === false || qualifies(id, score)) openInitials(id, score, showBoard);
+        else { nameLatest(id, score, lastInitials()); showBoard(); toast('Ikke topp 10 denne gangen – prøv igjen!'); }
+      }, 1100);
     },
   };
 
   lastStatus = 'Playing';
   currentGame = meta.factory(canvas, hooks);
 
-  keyHandler = (e) => { if (infoEl) return; currentGame?.onKey?.(e); };
+  keyHandler = (e) => { if (modalEl) return; currentGame?.onKey?.(e); };
   // capture:true so Arrow keys aren't lost when a button has focus (macOS Chrome)
   window.addEventListener('keydown', keyHandler, { capture: true });
   // Held-input games (Cabinet 2) also listen for key releases
@@ -317,16 +404,10 @@ function startGame(id) {
   });
   app.querySelector('#infoBtn').addEventListener('click', (e) => { e.currentTarget.blur(); sfx.click(); openInfo(id); });
   app.querySelector('#pauseBtn').addEventListener('click', () => currentGame?.togglePause());
-  app.querySelector('#restartBtn').addEventListener('click', () => {
-    currentGame?.restart();
-    app.querySelector('#hsLive').innerHTML = hsList(id);
-  });
+  app.querySelector('#restartBtn').addEventListener('click', () => { currentGame?.restart(); showBoard(); });
 
   app.querySelectorAll('.pad-btn[data-dx]').forEach((btn) => {
-    const fire = (e) => {
-      e.preventDefault();
-      currentGame?.setDir(+btn.dataset.dx, +btn.dataset.dy);
-    };
+    const fire = (e) => { e.preventDefault(); currentGame?.setDir(+btn.dataset.dx, +btn.dataset.dy); };
     btn.addEventListener('pointerdown', fire);
     // Release for held-input games (no-op for the original three carts)
     const rel = () => currentGame?.release?.(+btn.dataset.dx, +btn.dataset.dy);
@@ -367,7 +448,7 @@ function startGame(id) {
 }
 
 function teardownGame() {
-  closeInfo(false);
+  closeModal(false);
   if (raf) cancelAnimationFrame(raf);
   raf = 0;
   if (keyHandler) window.removeEventListener('keydown', keyHandler, { capture: true });
@@ -376,62 +457,321 @@ function teardownGame() {
   keyUpHandler = null;
   currentGame?.destroy?.();
   currentGame = null;
+  currentId = null;
+}
+
+// —— Modal chassis (info, leaderboard, shop, achievements, initials) ——
+let modalEl = null;
+let modalKey = null;
+let modalCfg = null;
+let pausedByModal = false;
+
+function openModal(inner, cfg = {}) {
+  closeModal(false);
+  modalCfg = cfg;
+  pausedByModal = false;
+  if (cfg.pause && currentGame && lastStatus !== 'Paused' && lastStatus !== 'Game Over') {
+    currentGame.togglePause?.();
+    pausedByModal = lastStatus === 'Paused';
+  }
+  modalEl = document.createElement('div');
+  modalEl.className = 'info-overlay';
+  modalEl.innerHTML = `
+    <div class="info-panel ${cfg.cls || ''}" role="dialog" aria-modal="true" aria-label="${esc(cfg.label || '')}" style="--accent:${cfg.accent || '#ffeaa7'}">
+      <button type="button" class="info-close" aria-label="Lukk">✕</button>
+      <div class="modal-inner">${inner}</div>
+    </div>`;
+  document.body.appendChild(modalEl);
+  modalEl.addEventListener('click', (e) => { if (e.target === modalEl) closeModal(true); });
+  modalEl.querySelector('.info-close').addEventListener('click', () => closeModal(true));
+  modalKey = (e) => {
+    e.stopPropagation();
+    if (e.key === 'Escape' || e.code === 'Escape') { e.preventDefault(); closeModal(true); return; }
+    if (cfg.onKey && cfg.onKey(e)) { e.preventDefault(); return; }
+    if (e.key === 'Enter' || e.key === ' ') return; // activate focused button
+    if (e.key !== 'Tab') e.preventDefault();
+  };
+  window.addEventListener('keydown', modalKey, { capture: true });
+  (modalEl.querySelector(cfg.focus || '.info-close') || modalEl.querySelector('.info-close')).focus({ preventScroll: true });
+  return modalEl;
+}
+function setModalInner(html) { if (modalEl) modalEl.querySelector('.modal-inner').innerHTML = html; }
+
+function closeModal(resume) {
+  if (!modalEl) return;
+  const cfg = modalCfg;
+  modalEl.remove();
+  modalEl = null;
+  modalCfg = null;
+  window.removeEventListener('keydown', modalKey, { capture: true });
+  modalKey = null;
+  if (resume && pausedByModal && currentGame && lastStatus === 'Paused') currentGame.togglePause?.();
+  pausedByModal = false;
+  if (resume) sfx.click();
+  cfg?.onClose?.();
 }
 
 // —— Game info overlay ——
-let infoEl = null;
-let infoKey = null;
-let pausedByInfo = false;
-let lastStatus = 'Playing';
-
-function esc(t) { return String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
-
 function openInfo(id) {
   const meta = GAMES[id], info = INFO[id];
   if (!meta || !info) return;
-  closeInfo(false);
-  pausedByInfo = false;
-  if (currentGame && lastStatus !== 'Paused') {
-    currentGame.togglePause?.();
-    pausedByInfo = lastStatus === 'Paused';
-  }
+  const willPause = !!currentGame && lastStatus !== 'Paused' && lastStatus !== 'Game Over';
   const list = (arr) => `<ul>${arr.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`;
-  infoEl = document.createElement('div');
-  infoEl.className = 'info-overlay';
-  infoEl.innerHTML = `
-    <div class="info-panel" role="dialog" aria-modal="true" aria-label="Game info: ${esc(meta.title)}" style="--accent:${meta.accent}">
-      <button type="button" class="info-close" aria-label="Lukk">✕</button>
+  openModal(`
       <p class="info-kicker">GAME INFO</p>
       <h2 class="info-title">${esc(meta.title)}</h2>
       <div class="info-body">
         <h3>MÅL</h3><p>${esc(info.goal)}</p>
         <h3>TASTATUR</h3>${list(info.keys)}
         <h3>TOUCH</h3>${list(info.touch)}
+        <h3>GAMEPAD</h3>${list([...(info.pad || []), ...PAD_COMMON])}
         <h3>REGLER &amp; FARER</h3>${list(info.rules)}
       </div>
-      <p class="info-foot">${currentGame ? (pausedByInfo || lastStatus === 'Paused' ? 'Spillet er pauset · ' : '') : ''}X / Esc / trykk utenfor for å lukke</p>
-    </div>`;
-  document.body.appendChild(infoEl);
-  infoEl.addEventListener('click', (e) => { if (e.target === infoEl) closeInfo(true); });
-  infoEl.querySelector('.info-close').addEventListener('click', () => closeInfo(true));
-  infoKey = (e) => {
-    e.stopPropagation();
-    if (e.key === 'Escape' || e.code === 'Escape') { e.preventDefault(); closeInfo(true); }
-    else if (e.key !== 'Tab') e.preventDefault();
-  };
-  window.addEventListener('keydown', infoKey, { capture: true });
-  infoEl.querySelector('.info-close').focus({ preventScroll: true });
+      <p class="info-foot">${currentGame ? (willPause || lastStatus === 'Paused' ? 'Spillet er pauset · ' : '') : ''}X / Esc / trykk utenfor for å lukke</p>`,
+  { pause: true, accent: meta.accent, label: 'Game info: ' + meta.title });
 }
 
-function closeInfo(resume) {
-  if (!infoEl) return;
-  infoEl.remove();
-  infoEl = null;
-  window.removeEventListener('keydown', infoKey, { capture: true });
-  infoKey = null;
-  if (resume && pausedByInfo && currentGame && lastStatus === 'Paused') currentGame.togglePause?.();
-  pausedByInfo = false;
-  if (resume) sfx.click();
+// —— Leaderboard overlay ——
+async function openBoard(game = 'snake') {
+  let sel = game;
+  let scores = null;
+  const draw = () => {
+    const list = scores?.[sel] || null;
+    const shown = list && list.length ? list : localList(sel);
+    const src = list ? (list.length ? '🌐 GLOBAL TOPP 10' : '🌐 GLOBAL – tom ennå, viser lokal') : (scores === null ? 'Laster…' : 'OFFLINE · LOKAL TOPP 5');
+    setModalInner(`
+      <p class="info-kicker">TOPPLISTE</p>
+      <h2 class="info-title" style="color:${GAMES[sel].accent}">${esc(GAMES[sel].title)}</h2>
+      <div class="tabs">${Object.values(GAMES).map((g) => `<button type="button" class="tab${g.id === sel ? ' on' : ''}" data-tab="${g.id}" style="--accent:${g.accent}">${esc(g.title)}</button>`).join('')}</div>
+      <p class="board-src">${src}</p>
+      <ol class="board">${rows(shown, 10)}</ol>
+      <p class="info-foot">Initialer skrives inn etter game over · Esc / B for å lukke</p>`);
+    modalEl.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { sel = b.dataset.tab; sfx.move(); draw(); modalEl.querySelector(`[data-tab="${sel}"]`)?.focus({ preventScroll: true }); }));
+  };
+  openModal('', { cls: 'wide', label: 'Toppliste', pause: true });
+  draw();
+  modalEl.querySelector(`[data-tab="${sel}"]`)?.focus({ preventScroll: true });
+  const res = await fetchAll(true);
+  scores = res || false;
+  if (modalEl) { const f = document.activeElement?.dataset?.tab; draw(); if (f) modalEl.querySelector(`[data-tab="${f}"]`)?.focus({ preventScroll: true }); }
 }
+
+// —— Shop overlay ——
+function openShop() {
+  const draw = (focusId) => {
+    const P = getProgress();
+    const item = (it, kind) => {
+      const owned = !!P.owned[it.id];
+      const active = kind === 'theme' ? P.theme === it.id : P.skins?.[it.game] === it.id;
+      const state = active ? '✔ I BRUK' : owned ? (kind === 'theme' ? 'BRUK' : 'TA PÅ') : `${it.price} 🪙`;
+      const sw = kind === 'theme' ? `<span class="sw theme-sw" data-sw="${it.id}"></span>` : `<span class="sw" style="background:${Object.values(it.colors)[0]};box-shadow:inset -6px -6px 0 ${Object.values(it.colors)[1] || 'rgba(0,0,0,.3)'}"></span>`;
+      return `<button type="button" class="shop-item${active ? ' active' : ''}${!owned && P.coins < it.price ? ' poor' : ''}" data-buy="${it.id}" data-kind="${kind}">
+        ${sw}<span class="si-name">${esc(it.name)}${kind === 'skin' ? `<small>${esc(gameName(it.game))}</small>` : ''}</span><span class="si-state">${state}</span></button>`;
+    };
+    setModalInner(`
+      <p class="info-kicker">BUTIKK</p>
+      <h2 class="info-title">🪙 ${P.coins} MYNTER</h2>
+      <div class="info-body">
+        <h3>KABINETT-TEMA</h3><div class="shop-grid">${THEMES.map((t) => item(t, 'theme')).join('')}</div>
+        <h3>SKINS</h3><div class="shop-grid">${SKINS.map((s) => item(s, 'skin')).join('')}</div>
+      </div>
+      <p class="info-foot">Tjen mynter i alle spill, med merker og dagens utfordring · alt lagres lokalt</p>`);
+    modalEl.querySelectorAll('[data-buy]').forEach((b) => b.addEventListener('click', () => {
+      const id = b.dataset.buy, kind = b.dataset.kind;
+      const P2 = getProgress();
+      if (!P2.owned[id]) {
+        const r = buy(id);
+        if (!r.ok) { sfx.die(); toast(r.reason === 'coins' ? 'Ikke nok mynter ennå 🪙' : 'Allerede kjøpt'); return; }
+        sfx.coin(); toast('Kjøpt! 🛒');
+      } else sfx.select();
+      if (kind === 'theme') setTheme(id); else equipSkin(id);
+      draw(id);
+    }));
+    if (focusId) modalEl.querySelector(`[data-buy="${focusId}"]`)?.focus({ preventScroll: true });
+  };
+  openModal('', { cls: 'wide', label: 'Butikk', onClose: () => { if (!currentGame) renderHome(); } });
+  draw();
+  modalEl.querySelector('[data-buy]')?.focus({ preventScroll: true });
+}
+
+// —— Achievements overlay ——
+function openAchievements() {
+  const P = getProgress();
+  const done = ACHIEVEMENTS.filter((a) => P.ach[a.id]).length;
+  openModal(`
+    <p class="info-kicker">MERKER</p>
+    <h2 class="info-title">⭐ ${done} / ${ACHIEVEMENTS.length}</h2>
+    <ul class="ach-list">${ACHIEVEMENTS.map((a) => `<li class="${P.ach[a.id] ? 'got' : ''}"><span class="ach-ic">${P.ach[a.id] ? '★' : '🔒'}</span><span><b>${esc(a.name)}</b><small>${esc(a.desc)}</small></span></li>`).join('')}</ul>
+    <p class="info-foot">Hvert merke gir +25 🪙 · totalt tjent: ${P.earned} 🪙</p>`, { cls: 'wide', label: 'Merker' });
+}
+
+// —— Arcade initials entry ——
+const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+function openInitials(id, score, refresh) {
+  const L = lastInitials().split('');
+  let pos = 0;
+  let phase = 'enter';
+  const draw = () => {
+    if (phase !== 'enter') return;
+    setModalInner(`
+      <p class="info-kicker">NY TOPPSCORE!</p>
+      <h2 class="info-title">${esc(GAMES[id].title)} · ${score}</h2>
+      <p class="ini-help">Skriv initialene dine</p>
+      <div class="ini">${L.map((c, i) => `
+        <div class="ini-slot${i === pos ? ' on' : ''}" data-slot="${i}">
+          <button type="button" class="ini-arrow" data-up="${i}" aria-label="Neste bokstav">▲</button>
+          <span class="ini-ch">${c}</span>
+          <button type="button" class="ini-arrow" data-down="${i}" aria-label="Forrige bokstav">▼</button>
+        </div>`).join('')}</div>
+      <div class="ini-actions">
+        <button type="button" class="btn chunky small" id="iniSend">SEND ▶</button>
+        <button type="button" class="btn chunky small ghost" id="iniSkip">HOPP OVER</button>
+      </div>
+      <p class="info-foot">Bokstaver / ↑↓ endre · ←→ flytt · Enter send · Esc hopp over<br>🎮 ↑↓←→ · A / ✕ neste/send · B / ○ hopp over</p>`);
+    const spin = (i, d) => { L[i] = CHARS[(CHARS.indexOf(L[i]) + d + CHARS.length) % CHARS.length]; pos = i; sfx.move(); draw(); };
+    modalEl.querySelectorAll('[data-up]').forEach((b) => b.addEventListener('click', () => spin(+b.dataset.up, 1)));
+    modalEl.querySelectorAll('[data-down]').forEach((b) => b.addEventListener('click', () => spin(+b.dataset.down, -1)));
+    modalEl.querySelectorAll('.ini-ch').forEach((s, i) => s.addEventListener('click', () => { pos = i; draw(); }));
+    modalEl.querySelector('#iniSend').addEventListener('click', send);
+    modalEl.querySelector('#iniSkip').addEventListener('click', () => closeModal(true));
+    modalEl.querySelector('#iniSend').focus({ preventScroll: true });
+  };
+  const spinPos = (d) => { L[pos] = CHARS[(CHARS.indexOf(L[pos]) + d + CHARS.length) % CHARS.length]; sfx.move(); draw(); };
+  async function send() {
+    if (phase !== 'enter') return;
+    phase = 'sending';
+    const name = L.join('');
+    saveInitials(name);
+    nameLatest(id, score, name);
+    setModalInner(`<p class="info-kicker">TOPPLISTE</p><h2 class="info-title">${name} · ${score}</h2><p class="ini-help">Sender…</p>`);
+    sfx.select();
+    const r = await submitScore(id, name, score);
+    if (!modalEl) return;
+    phase = 'done';
+    let html;
+    if (r.ok) {
+      unlock('online');
+      const mark = r.scores.findIndex((e) => e.name === name && e.score === score);
+      html = `<p class="ini-help">${r.rank <= 10 ? `Du er nr ${r.rank} i verden! 🌐` : `Plass ${r.rank} globalt`}</p><ol class="board">${rows(r.scores, 10, mark)}</ol>`;
+      sfx.level();
+    } else {
+      html = `<p class="ini-help warn">${r.error === 'offline' ? 'Offline – lagret i den lokale topplisten.' : esc(r.error) + ' – lagret lokalt.'}</p><ol class="board">${rows(localList(id), 5)}</ol>`;
+    }
+    setModalInner(`<p class="info-kicker">TOPPLISTE</p><h2 class="info-title">${esc(GAMES[id].title)}</h2>${html}
+      <div class="ini-actions"><button type="button" class="btn chunky small" id="iniOk">OK</button></div>
+      <p class="info-foot">Enter / A for å lukke · R / Start for ny runde</p>`);
+    modalEl.querySelector('#iniOk').addEventListener('click', () => closeModal(true));
+    modalEl.querySelector('#iniOk').focus({ preventScroll: true });
+    refresh?.(r.ok ? r.scores.findIndex((e) => e.name === name && e.score === score) : -1);
+  }
+  const onKey = (e) => {
+    if (phase === 'done') {
+      if (e.key === 'r' || e.key === 'R') { closeModal(false); currentGame?.restart(); refresh?.(); return true; }
+      return false;
+    }
+    if (phase !== 'enter') return true;
+    const k = e.key || '';
+    if (/^[a-zA-Z0-9]$/.test(k)) { L[pos] = k.toUpperCase(); pos = Math.min(2, pos + 1); sfx.move(); draw(); return true; }
+    if (k === 'ArrowUp') { spinPos(1); return true; }
+    if (k === 'ArrowDown') { spinPos(-1); return true; }
+    if (k === 'ArrowLeft') { pos = Math.max(0, pos - 1); draw(); return true; }
+    if (k === 'ArrowRight') { pos = Math.min(2, pos + 1); draw(); return true; }
+    if (k === 'Backspace') { pos = Math.max(0, pos - 1); draw(); return true; }
+    if (k === 'Enter') { send(); return true; }
+    return false;
+  };
+  const onPad = (btn) => {
+    if (phase === 'done') { if (btn === 'a' || btn === 'b') closeModal(true); else if (btn === 'start') { closeModal(false); currentGame?.restart(); refresh?.(); } return; }
+    if (phase !== 'enter') return;
+    if (btn === 'up') spinPos(1);
+    else if (btn === 'down') spinPos(-1);
+    else if (btn === 'left') { pos = Math.max(0, pos - 1); draw(); }
+    else if (btn === 'right') { pos = Math.min(2, pos + 1); draw(); }
+    else if (btn === 'a') { if (pos < 2) { pos++; sfx.move(); draw(); } else send(); }
+    else if (btn === 'start') send();
+    else if (btn === 'b') closeModal(true);
+  };
+  openModal('', { label: 'Skriv initialer', onKey, onPad, cls: 'ini-panel', onClose: () => refresh?.() });
+  draw();
+}
+
+// —— Gamepad routing ——
+function focusables(scope) {
+  return [...scope.querySelectorAll('button, [tabindex="0"]')].filter((el) => el.offsetParent !== null && !el.disabled);
+}
+function navigate(dir, scope, skip = null) {
+  const list = focusables(scope).filter((el) => !skip || !el.matches(skip));
+  if (!list.length) return;
+  const cur = document.activeElement;
+  if (!list.includes(cur)) { (scope.querySelector('.cart, [data-tab].on, [data-buy], #iniSend') || list[0]).focus({ preventScroll: false }); return; }
+  const a = cur.getBoundingClientRect();
+  const ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+  let best = null, bestD = Infinity;
+  for (const el of list) {
+    if (el === cur) continue;
+    const b = el.getBoundingClientRect();
+    const bx = b.left + b.width / 2, by = b.top + b.height / 2;
+    const dx = bx - ax, dy = by - ay;
+    const main = dir === 'left' ? -dx : dir === 'right' ? dx : dir === 'up' ? -dy : dy;
+    const side = dir === 'left' || dir === 'right' ? Math.abs(dy) : Math.abs(dx);
+    if (main <= 4) continue;
+    const d = main + side * 2.5;
+    if (d < bestD) { bestD = d; best = el; }
+  }
+  if (best) { best.focus({ preventScroll: false }); best.scrollIntoView?.({ block: 'nearest' }); sfx.move(); }
+}
+
+const TWO_P = new Set(['pixelpaddle', 'tankduel']);
+const KEYSETS = {
+  arrows: { up: ['ArrowUp', 'ArrowUp'], down: ['ArrowDown', 'ArrowDown'], left: ['ArrowLeft', 'ArrowLeft'], right: ['ArrowRight', 'ArrowRight'], a: ['Space', ' '], b: ['KeyX', 'x'] },
+  p1: { up: ['KeyW', 'w'], down: ['KeyS', 's'], left: ['KeyA', 'a'], right: ['KeyD', 'd'], a: ['Space', ' '], b: ['KeyF', 'f'] },
+  p2: { up: ['ArrowUp', 'ArrowUp'], down: ['ArrowDown', 'ArrowDown'], left: ['ArrowLeft', 'ArrowLeft'], right: ['ArrowRight', 'ArrowRight'], a: ['Enter', 'Enter'], b: ['Enter', 'Enter'] },
+};
+const fakeKey = (code, key, repeat = false) => ({ code, key, repeat, preventDefault() {}, stopPropagation() {} });
+
+function onPad({ pad, btn, down, repeat }) {
+  if (modalEl) {
+    if (!down) return;
+    if (modalCfg?.onPad) return modalCfg.onPad(btn, pad);
+    if (['up', 'down', 'left', 'right'].includes(btn)) navigate(btn, modalEl);
+    else if (btn === 'a') document.activeElement?.click?.();
+    else if (btn === 'b' || btn === 'start' || btn === 'y' || btn === 'select') closeModal(true);
+    return;
+  }
+  if (currentGame) {
+    const id = currentId;
+    if (down && !repeat) {
+      if (btn === 'start') { currentGame.onKey(fakeKey(lastStatus === 'Game Over' ? 'KeyR' : 'KeyP', lastStatus === 'Game Over' ? 'r' : 'p')); return; }
+      if (btn === 'select') { sfx.blip(); renderHome(); return; }
+      if (btn === 'y') { sfx.click(); openInfo(id); return; }
+      if (btn === 'a' && lastStatus === 'Game Over') { currentGame.onKey(fakeKey('KeyR', 'r')); return; }
+    }
+    const set = TWO_P.has(id) ? (pad === 1 ? KEYSETS.p2 : KEYSETS.p1) : KEYSETS.arrows;
+    const k = set[btn];
+    if (!k) return;
+    if (down) {
+      if (repeat && !(id === 'blockdrop' && btn !== 'up')) return;
+      currentGame.onKey(fakeKey(k[0], k[1], repeat));
+    } else currentGame.onKeyUp?.(fakeKey(k[0], k[1]));
+    return;
+  }
+  // menu
+  if (!down) return;
+  const home = app.querySelector('.home');
+  if (!home) return;
+  if (['up', 'down', 'left', 'right'].includes(btn)) navigate(btn, home, '.cart-info');
+  else if (btn === 'a' || btn === 'start') {
+    const el = document.activeElement;
+    if (el && home.contains(el) && el !== document.body) el.click();
+    else home.querySelector('.cart')?.focus();
+  } else if (btn === 'y') {
+    const cart = document.activeElement?.closest?.('.cart');
+    if (cart) { sfx.click(); openInfo(cart.dataset.game); }
+  } else if (btn === 'x') { sfx.click(); openBoard(dailyChallenge().game); }
+}
+// tiny hook for automated tests / debugging
+window.__pixelnook = { get game() { return currentGame; }, get id() { return currentId; } };
+
+initGamepads(onPad, (gp, on) => toast(on ? '🎮 Kontroller tilkoblet' : '🎮 Kontroller frakoblet'));
 
 renderHome();

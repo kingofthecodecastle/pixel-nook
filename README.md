@@ -4,7 +4,7 @@
 
 A tiny living-room cabinet for the browser — pick a cartridge, play, chase the high score. Built for Kai's Vibe Coding Academy hackathon.
 
-Free. No backend. No ads. Just beeps and pixels.
+Free. No ads. Just beeps and pixels — plus a tiny serverless leaderboard.
 
 ## Games
 
@@ -45,7 +45,23 @@ On phones/tablets use the on-screen D-pad and the red **●** button (hold works
 | Moon Drop | ←/→ rotate · ↑ or Space thrust (hold) | ◀ ▶ rotate · ▲ / ● thrust |
 | Tank Duel | Menu: ↑/↓ + Space, or 1 / 2. 1P: arrows/WASD drive · Space/Enter/F fire. 2P: left WASD + Space/F/Q fire, right arrows + Enter/Shift-right/. fire | D-pad drive (left tank) · ● fire / start |
 
-High scores: top **5** per game, stored in `localStorage`. Pixel Paddle and Tank Duel save scores in 1-player mode only.
+**Gamepad** (Xbox / PlayStation, Gamepad API — just plug in and press a button): d-pad or left stick moves, **A / ✕** = fire / action, **B / ○** = secondary (rotate in Block Drop), **Start** = pause (restart after game over), **Y / △** = game info, **Select / Share** = back to the cabinet. In the menu the d-pad moves between carts and buttons, A starts, Y opens the cart's info, X opens the leaderboard. **Pixel Paddle** and **Tank Duel** support two controllers: controller 1 = left / green, controller 2 = right / red.
+
+## Features
+
+- **Global leaderboard** — arcade-style 3 initials, top 10 per game, shared by everyone. Enter your initials after game over (keyboard, ▲▼ buttons or gamepad). The cart cards show the online top 3–5 and the play screen shows the top 10. If the API is unreachable the game falls back to the local top 5 (`localStorage`). Pixel Paddle and Tank Duel only submit 1-player scores.
+- **Daily challenge** — one game + one goal per day (deterministic from the Oslo date, so it is the same for everyone). Shown in the menu; completion is stored locally and pays bonus coins.
+- **Coins, achievements and shop** — every game pays coins (score-based; 2-player rounds pay a little). 20 achievements (+25 coins each). Spend coins on cabinet themes (Arktis, Neon, Krom, Gull) and skins (Snake ×2, Frog Hop, Star Blaster, Tank Duel, Moon Drop). Everything is stored locally.
+- **Sound** — original chiptune loop in the menu and richer SFX (noise bursts, envelopes), all generated live with Web Audio — no audio files, no copyrighted music. The sound button mutes everything.
+- **CRT mode** — 📺 toggle for heavier scanlines, slight screen curvature, vignette and glow. Saved in `localStorage`.
+
+## Leaderboard API
+
+`api/scores.js` is a Vercel Function backed by a free **Neon Postgres** database (added through the Vercel Marketplace; `DATABASE_URL` is injected by Vercel). It talks to Neon's SQL-over-HTTP endpoint with plain `fetch` — no extra npm packages. The table is created on first use.
+
+- `GET /api/scores` → top 10 for every game · `GET /api/scores?game=snake` → one game
+- `POST /api/scores` `{ "game": "snake", "name": "KAI", "score": 420 }`
+- Abuse protection: game whitelist, initials must be 3 × `A–Z / 0–9` (with a small blocklist), per-game score ceilings, and a rate limit per hashed IP (6 per minute, 60 per hour → HTTP 429). Raw IPs are never stored.
 
 ## Run locally
 
@@ -63,12 +79,13 @@ Open the URL Vite prints (usually `http://localhost:5173`).
 npm run build
 ```
 
-Static output lands in `dist/`. Deploy that folder to Vercel (or any static host).
+Static output lands in `dist/`; the leaderboard lives in `api/` (Vercel Functions). On any other static host the game still works with local high scores only.
 
 - Framework preset: **Vite**
 - Build command: `npm run build`
 - Output directory: `dist`
-- `vercel.json` is included for SPA-friendly rewrites
+- `vercel.json` is included for SPA-friendly rewrites (everything except `/api/*`)
+- Leaderboard storage: Neon Postgres (Vercel Marketplace, free plan) connected to the project
 
 Or: `npx vercel` from this folder after login.
 
@@ -81,9 +98,9 @@ Or: `npx vercel` from this folder after login.
 
 ## Stack
 
-Vite + vanilla JavaScript · Canvas 2D · Web Audio API · CSS CRT/scanlines · localStorage
+Vite + vanilla JavaScript · Canvas 2D · Web Audio API · Gamepad API · CSS CRT/scanlines · localStorage · Vercel Functions + Neon Postgres
 
-The nine newer carts share a tiny engine in `src/games/kit.js` (held keys + touch, pause/game-over overlays, high scores). The original three carts are unchanged.
+The nine newer carts share a tiny engine in `src/games/kit.js` (held keys + touch, pause/game-over overlays, high scores). The original three carts keep their own code. Meta features live in `src/progress.js` (coins, achievements, shop, daily challenge), `src/online.js` (leaderboard client), `src/gamepad.js` and `src/audio.js`.
 
 ## License
 

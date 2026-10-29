@@ -66,7 +66,7 @@ export function createPixelPaddle(canvas, hooks) {
         b.vy = Math.sin(ang) * sp;
         s.rally += 1;
         s.cpuErr = rand(-PH * 0.45, PH * 0.45);
-        g.sfx.drop();
+        g.sfx.bounce();
         return true;
       };
       if (b.vx < 0 && b.x <= L.x + PW && b.x >= L.x - 4) {

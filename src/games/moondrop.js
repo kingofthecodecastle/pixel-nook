@@ -1,4 +1,5 @@
 import { makeGame, rand, clamp } from './kit.js';
+import { getSkin } from '../progress.js';
 
 const W = 320, H = 400;
 
@@ -85,7 +86,7 @@ export function createMoonDrop(canvas, hooks) {
       // ship
       if (!s.crashed) {
         ctx.save(); ctx.translate(Math.round(sh.x), Math.round(sh.y)); ctx.rotate(sh.a);
-        ctx.fillStyle = '#dfe6e9'; ctx.fillRect(-6, -8, 12, 10);
+        ctx.fillStyle = getSkin('moondrop')?.body || '#dfe6e9'; ctx.fillRect(-6, -8, 12, 10);
         ctx.fillStyle = '#74b9ff'; ctx.fillRect(-3, -6, 6, 4);
         ctx.fillStyle = '#fdcb6e'; ctx.fillRect(-8, 2, 16, 3);
         ctx.fillStyle = '#9a8f7a'; ctx.fillRect(-8, 5, 2, 3); ctx.fillRect(6, 5, 2, 3); ctx.fillRect(-2, 5, 4, 2);

@@ -12,31 +12,31 @@ const DAILY = { snake: [100, 200, 300], blockdrop: [300, 800, 1500], mazemunch: 
 export const DAILY_REWARD = [40, 60, 90];
 
 export const THEMES = [
-  { id: 'wood', name: 'Treverk', price: 0 },
-  { id: 'arctic', name: 'Arktis', price: 120 },
+  { id: 'wood', name: 'Woodgrain', price: 0 },
+  { id: 'arctic', name: 'Arctic', price: 120 },
   { id: 'neon', name: 'Neon', price: 160 },
-  { id: 'chrome', name: 'Krom', price: 220 },
-  { id: 'gold', name: 'Gull', price: 400 },
+  { id: 'chrome', name: 'Chrome', price: 220 },
+  { id: 'gold', name: 'Gold', price: 400 },
 ];
 export const SKINS = [
-  { id: 'snake-gold', game: 'snake', name: 'Gullslange', price: 80, colors: { head: '#ffe066', body: '#c9a227' } },
-  { id: 'snake-ice', game: 'snake', name: 'Isslange', price: 80, colors: { head: '#bff6ff', body: '#4fb3d9' } },
-  { id: 'frog-pink', game: 'froghop', name: 'Rosa frosk', price: 70, colors: { body: '#ff7eb6' } },
-  { id: 'ship-red', game: 'starblaster', name: 'Rødt skip', price: 90, colors: { body: '#ff4d6d', trim: '#ffeaa7' } },
-  { id: 'tank-camo', game: 'tankduel', name: 'Kamuflasje', price: 90, colors: { color: '#a3b84a', dark: '#4f5d1f' } },
-  { id: 'lander-gold', game: 'moondrop', name: 'Gull-lander', price: 90, colors: { body: '#ffe066' } },
+  { id: 'snake-gold', game: 'snake', name: 'Gold Snake', price: 80, colors: { head: '#ffe066', body: '#c9a227' } },
+  { id: 'snake-ice', game: 'snake', name: 'Ice Snake', price: 80, colors: { head: '#bff6ff', body: '#4fb3d9' } },
+  { id: 'frog-pink', game: 'froghop', name: 'Pink Frog', price: 70, colors: { body: '#ff7eb6' } },
+  { id: 'ship-red', game: 'starblaster', name: 'Red Ship', price: 90, colors: { body: '#ff4d6d', trim: '#ffeaa7' } },
+  { id: 'tank-camo', game: 'tankduel', name: 'Camo', price: 90, colors: { color: '#a3b84a', dark: '#4f5d1f' } },
+  { id: 'lander-gold', game: 'moondrop', name: 'Gold Lander', price: 90, colors: { body: '#ffe066' } },
 ];
 
 export const ACHIEVEMENTS = [
-  { id: 'first', name: 'Første cart', desc: 'Spill ditt første spill' },
-  { id: 'all12', name: 'Samler', desc: 'Spill alle 12 carts' },
-  { id: 'daily1', name: 'Dagens helt', desc: 'Fullfør en dagens utfordring' },
-  { id: 'daily5', name: 'Fast gjest', desc: 'Fullfør 5 dagens utfordringer' },
-  { id: 'coins250', name: 'Myntsamler', desc: 'Tjen 250 mynter totalt' },
-  { id: 'coins1000', name: 'Skattkiste', desc: 'Tjen 1000 mynter totalt' },
-  { id: 'shopper', name: 'Kunde', desc: 'Kjøp noe i butikken' },
-  { id: 'online', name: 'På tavla', desc: 'Send inn en score til den globale topplisten' },
-  ...GAME_IDS.map((g) => ({ id: 'master_' + g, name: NAMES[g] + '-mester', desc: `${MASTER[g]} poeng i ${NAMES[g]}`, game: g })),
+  { id: 'first', name: 'First Cart', desc: 'Play your first game' },
+  { id: 'all12', name: 'Collector', desc: 'Play all 12 carts' },
+  { id: 'daily1', name: 'Hero of the Day', desc: 'Complete a daily challenge' },
+  { id: 'daily5', name: 'Regular', desc: 'Complete 5 daily challenges' },
+  { id: 'coins250', name: 'Coin Collector', desc: 'Earn 250 coins in total' },
+  { id: 'coins1000', name: 'Treasure Chest', desc: 'Earn 1000 coins in total' },
+  { id: 'shopper', name: 'Customer', desc: 'Buy something in the shop' },
+  { id: 'online', name: 'On the Board', desc: 'Submit a score to the global leaderboard' },
+  ...GAME_IDS.map((g) => ({ id: 'master_' + g, name: NAMES[g] + ' Master', desc: `${MASTER[g]} points in ${NAMES[g]}`, game: g })),
 ];
 const ACH_REWARD = 25;
 
@@ -100,7 +100,7 @@ export function dailyChallenge(key = todayKey()) {
   const game = GAME_IDS[h % GAME_IDS.length];
   const tier = (h >>> 8) % 3;
   const target = DAILY[game][tier];
-  return { key, game, tier, target, reward: DAILY_REWARD[tier], label: `Få ${target} poeng i ${NAMES[game]}`, done: !!P.daily[key] };
+  return { key, game, tier, target, reward: DAILY_REWARD[tier], label: `Score ${target} in ${NAMES[game]}`, done: !!P.daily[key] };
 }
 /** Check during play / at game over. Returns the challenge if it was just completed. */
 export function checkDaily(game, score, noSave = false) {

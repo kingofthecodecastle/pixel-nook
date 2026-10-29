@@ -27,7 +27,7 @@ Twelve cartridges, all original names and pixel art, all running in the browser 
 
 ## Controls
 
-All carts: **(i)** game info in Norwegian (goal, controls, rules — also on each cart in the menu; pauses the game, close with X / Esc / tap outside) · **P / Esc** pause · **R** restart after game over · ◀ CABINET back · sound toggle (saved in localStorage).
+All carts: **(i)** game info (goal, controls, rules — also on each cart in the menu; pauses the game, close with X / Esc / tap outside) · **P / Esc** pause · **R** restart after game over · ◀ CABINET back · sound toggle (saved in localStorage).
 On phones/tablets use the on-screen D-pad and the red **●** button (hold works for steering, thrust and auto-fire).
 
 | Cart | Keyboard | Touch |
@@ -51,7 +51,7 @@ On phones/tablets use the on-screen D-pad and the red **●** button (hold works
 
 - **Global leaderboard** — arcade-style 3 initials, top 10 per game, shared by everyone. Enter your initials after game over (keyboard, ▲▼ buttons or gamepad). The cart cards show the online top 3–5 and the play screen shows the top 10. If the API is unreachable the game falls back to the local top 5 (`localStorage`). Pixel Paddle and Tank Duel only submit 1-player scores.
 - **Daily challenge** — one game + one goal per day (deterministic from the Oslo date, so it is the same for everyone). Shown in the menu; completion is stored locally and pays bonus coins.
-- **Coins, achievements and shop** — every game pays coins (score-based; 2-player rounds pay a little). 20 achievements (+25 coins each). Spend coins on cabinet themes (Arktis, Neon, Krom, Gull) and skins (Snake ×2, Frog Hop, Star Blaster, Tank Duel, Moon Drop). Everything is stored locally.
+- **Coins, achievements and shop** — every game pays coins (score-based; 2-player rounds pay a little). 20 achievements (+25 coins each). Spend coins on cabinet themes (Arctic, Neon, Chrome, Gold) and skins (Snake ×2, Frog Hop, Star Blaster, Tank Duel, Moon Drop). Everything is stored locally.
 - **Sound** — original chiptune loop in the menu and richer SFX (noise bursts, envelopes), all generated live with Web Audio — no audio files, no copyrighted music. The sound button mutes everything.
 - **CRT mode** — 📺 toggle for heavier scanlines, slight screen curvature, vignette and glow. Saved in `localStorage`.
 

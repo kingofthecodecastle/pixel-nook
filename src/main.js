@@ -181,8 +181,8 @@ function toast(html, kind = '') {
 }
 onProgress((e) => {
   if (e.type === 'coins' && e.why === 'game') { toast(`+${e.n} 🪙`, 'coin'); sfx.coin(); }
-  if (e.type === 'achievement') { toast(`⭐ MERKE: ${esc(e.a.name)} <small>+25 🪙</small>`, 'ach'); sfx.achieve(); }
-  if (e.type === 'daily') { toast(`★ DAGENS UTFORDRING FULLFØRT! <small>+${e.d.reward} 🪙</small>`, 'daily'); sfx.level(); }
+  if (e.type === 'achievement') { toast(`⭐ BADGE: ${esc(e.a.name)} <small>+25 🪙</small>`, 'ach'); sfx.achieve(); }
+  if (e.type === 'daily') { toast(`★ DAILY CHALLENGE COMPLETE! <small>+${e.d.reward} 🪙</small>`, 'daily'); sfx.level(); }
   const c = document.querySelector('#coinCount');
   if (c) c.textContent = String(getProgress().coins);
 });
@@ -207,15 +207,15 @@ function renderHome() {
       </header>
       <div class="meta-row">
         <p class="select-label">SELECT CARTRIDGE</p>
-        <button type="button" class="daily${d.done ? ' done' : ''}" id="dailyBtn" style="--accent:${GAMES[d.game].accent}" title="Dagens utfordring – lik for alle i dag">
-          <span class="daily-k">★ DAGENS</span><span class="daily-l">${esc(d.label)}</span><span class="daily-r">${d.done ? '✔ FULLFØRT' : `+${d.reward} 🪙`}</span>
+        <button type="button" class="daily${d.done ? ' done' : ''}" id="dailyBtn" style="--accent:${GAMES[d.game].accent}" title="Daily challenge – the same for everyone today">
+          <span class="daily-k">★ DAILY</span><span class="daily-l">${esc(d.label)}</span><span class="daily-r">${d.done ? '✔ DONE' : `+${d.reward} 🪙`}</span>
         </button>
       </div>
       <div class="cart-row" role="list">
         ${Object.values(GAMES).map((g) => `
           <button class="cart${g.id === d.game ? ' is-daily' : ''}" data-game="${g.id}" role="listitem" style="--cart:${g.color};--accent:${g.accent}">
             <div class="cart-ridge"></div>
-            ${g.id === d.game ? '<span class="cart-daily" title="Dagens utfordring">★</span>' : ''}
+            ${g.id === d.game ? '<span class="cart-daily" title="Daily challenge">★</span>' : ''}
             <span class="cart-info" data-info="${g.id}" role="button" tabindex="0" aria-label="Game info: ${g.title}" title="Game info">i</span>
             <div class="cart-label">
               <span class="cart-year">${g.year}</span>
@@ -230,11 +230,11 @@ function renderHome() {
       <footer class="home-foot">
         <div class="foot-btns">
           <button type="button" class="btn chunky small mute-btn" id="muteBtn">${isMuted() ? '🔇 MUTED' : '🔊 SOUND'}</button>
-          <button type="button" class="btn chunky small" id="boardBtn">🏆 TOPPLISTE</button>
-          <button type="button" class="btn chunky small" id="shopBtn">🛒 BUTIKK</button>
+          <button type="button" class="btn chunky small" id="boardBtn">🏆 LEADERBOARD</button>
+          <button type="button" class="btn chunky small" id="shopBtn">🛒 SHOP</button>
           <button type="button" class="btn chunky small" id="achBtn">⭐ ${achDone}/${ACHIEVEMENTS.length}</button>
-          <button type="button" class="btn chunky small${isCrt() ? ' on' : ''}" id="crtBtn" aria-pressed="${isCrt()}">📺 CRT ${isCrt() ? 'PÅ' : 'AV'}</button>
-          <span class="coins" title="Mynter">🪙 <span id="coinCount">${P.coins}</span></span>
+          <button type="button" class="btn chunky small${isCrt() ? ' on' : ''}" id="crtBtn" aria-pressed="${isCrt()}">📺 CRT ${isCrt() ? 'ON' : 'OFF'}</button>
+          <span class="coins" title="Coins">🪙 <span id="coinCount">${P.coins}</span></span>
         </div>
         <p class="hint">Arrows / WASD · Space fire/jump · P pause · R restart · 🎮 gamepad <span id="netState"></span></p>
       </footer>
@@ -263,7 +263,7 @@ function renderHome() {
   startMusic();
   fetchAll().then((scores) => {
     const net = app.querySelector('#netState');
-    if (net) net.textContent = scores ? '· 🌐 online toppliste' : '· offline – lokal toppliste';
+    if (net) net.textContent = scores ? '· 🌐 online leaderboard' : '· offline – local leaderboard';
     if (!scores) return;
     app.querySelectorAll('.cart-hs[data-hs]').forEach((ol) => {
       ol.innerHTML = rows(scores[ol.dataset.hs]?.length ? scores[ol.dataset.hs] : localList(ol.dataset.hs), 5);
@@ -316,7 +316,7 @@ function startGame(id) {
         </div>
       </div>
       <div class="hs-panel">
-        <p class="hs-title" id="hsTitle">TOPPLISTE</p>
+        <p class="hs-title" id="hsTitle">LEADERBOARD</p>
         <ol id="hsLive">${hsList(id)}</ol>
       </div>
     </div>
@@ -330,7 +330,7 @@ function startGame(id) {
     if (!hs) return;
     const online = cachedGame(id);
     const has = online && online.length;
-    title.textContent = has ? '🌐 TOPP 10' : online ? '🌐 TOPP 10 · tom – lokal:' : 'TOP 5 · LOKAL';
+    title.textContent = has ? '🌐 TOP 10' : online ? '🌐 TOP 10 · empty – local:' : 'TOP 5 · LOCAL';
     hs.innerHTML = rows(has ? online : localList(id), has ? 10 : 5, mark);
   };
   fetchGame(id).then(() => { if (currentId === id) showBoard(); });
@@ -381,7 +381,7 @@ function startGame(id) {
       setTimeout(() => {
         if (currentGame !== game || modalEl || lastStatus !== 'Game Over') return;
         if (isOnline() === false || qualifies(id, score)) openInitials(id, score, showBoard);
-        else { nameLatest(id, score, lastInitials()); showBoard(); toast('Ikke topp 10 denne gangen – prøv igjen!'); }
+        else { nameLatest(id, score, lastInitials()); showBoard(); toast('Not top 10 this time – try again!'); }
       }, 1100);
     },
   };
@@ -521,13 +521,13 @@ function openInfo(id) {
       <p class="info-kicker">GAME INFO</p>
       <h2 class="info-title">${esc(meta.title)}</h2>
       <div class="info-body">
-        <h3>MÅL</h3><p>${esc(info.goal)}</p>
-        <h3>TASTATUR</h3>${list(info.keys)}
+        <h3>GOAL</h3><p>${esc(info.goal)}</p>
+        <h3>KEYBOARD</h3>${list(info.keys)}
         <h3>TOUCH</h3>${list(info.touch)}
         <h3>GAMEPAD</h3>${list([...(info.pad || []), ...PAD_COMMON])}
-        <h3>REGLER &amp; FARER</h3>${list(info.rules)}
+        <h3>RULES &amp; HAZARDS</h3>${list(info.rules)}
       </div>
-      <p class="info-foot">${currentGame ? (willPause || lastStatus === 'Paused' ? 'Spillet er pauset · ' : '') : ''}X / Esc / trykk utenfor for å lukke</p>`,
+      <p class="info-foot">${currentGame ? (willPause || lastStatus === 'Paused' ? 'Game paused · ' : '') : ''}X / Esc / tap outside to close</p>`,
   { pause: true, accent: meta.accent, label: 'Game info: ' + meta.title });
 }
 
@@ -538,17 +538,17 @@ async function openBoard(game = 'snake') {
   const draw = () => {
     const list = scores?.[sel] || null;
     const shown = list && list.length ? list : localList(sel);
-    const src = list ? (list.length ? '🌐 GLOBAL TOPP 10' : '🌐 GLOBAL – tom ennå, viser lokal') : (scores === null ? 'Laster…' : 'OFFLINE · LOKAL TOPP 5');
+    const src = list ? (list.length ? '🌐 GLOBAL TOP 10' : '🌐 GLOBAL – empty so far, showing local') : (scores === null ? 'Loading…' : 'OFFLINE · LOCAL TOP 5');
     setModalInner(`
-      <p class="info-kicker">TOPPLISTE</p>
+      <p class="info-kicker">LEADERBOARD</p>
       <h2 class="info-title" style="color:${GAMES[sel].accent}">${esc(GAMES[sel].title)}</h2>
       <div class="tabs">${Object.values(GAMES).map((g) => `<button type="button" class="tab${g.id === sel ? ' on' : ''}" data-tab="${g.id}" style="--accent:${g.accent}">${esc(g.title)}</button>`).join('')}</div>
       <p class="board-src">${src}</p>
       <ol class="board">${rows(shown, 10)}</ol>
-      <p class="info-foot">Initialer skrives inn etter game over · Esc / B for å lukke</p>`);
+      <p class="info-foot">Enter your initials after game over · Esc / B to close</p>`);
     modalEl.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { sel = b.dataset.tab; sfx.move(); draw(); modalEl.querySelector(`[data-tab="${sel}"]`)?.focus({ preventScroll: true }); }));
   };
-  openModal('', { cls: 'wide', label: 'Toppliste', pause: true });
+  openModal('', { cls: 'wide', label: 'Leaderboard', pause: true });
   draw();
   modalEl.querySelector(`[data-tab="${sel}"]`)?.focus({ preventScroll: true });
   const res = await fetchAll(true);
@@ -563,33 +563,33 @@ function openShop() {
     const item = (it, kind) => {
       const owned = !!P.owned[it.id];
       const active = kind === 'theme' ? P.theme === it.id : P.skins?.[it.game] === it.id;
-      const state = active ? '✔ I BRUK' : owned ? (kind === 'theme' ? 'BRUK' : 'TA PÅ') : `${it.price} 🪙`;
+      const state = active ? '✔ IN USE' : owned ? (kind === 'theme' ? 'USE' : 'EQUIP') : `${it.price} 🪙`;
       const sw = kind === 'theme' ? `<span class="sw theme-sw" data-sw="${it.id}"></span>` : `<span class="sw" style="background:${Object.values(it.colors)[0]};box-shadow:inset -6px -6px 0 ${Object.values(it.colors)[1] || 'rgba(0,0,0,.3)'}"></span>`;
       return `<button type="button" class="shop-item${active ? ' active' : ''}${!owned && P.coins < it.price ? ' poor' : ''}" data-buy="${it.id}" data-kind="${kind}">
         ${sw}<span class="si-name">${esc(it.name)}${kind === 'skin' ? `<small>${esc(gameName(it.game))}</small>` : ''}</span><span class="si-state">${state}</span></button>`;
     };
     setModalInner(`
-      <p class="info-kicker">BUTIKK</p>
-      <h2 class="info-title">🪙 ${P.coins} MYNTER</h2>
+      <p class="info-kicker">SHOP</p>
+      <h2 class="info-title">🪙 ${P.coins} COINS</h2>
       <div class="info-body">
-        <h3>KABINETT-TEMA</h3><div class="shop-grid">${THEMES.map((t) => item(t, 'theme')).join('')}</div>
+        <h3>CABINET THEMES</h3><div class="shop-grid">${THEMES.map((t) => item(t, 'theme')).join('')}</div>
         <h3>SKINS</h3><div class="shop-grid">${SKINS.map((s) => item(s, 'skin')).join('')}</div>
       </div>
-      <p class="info-foot">Tjen mynter i alle spill, med merker og dagens utfordring · alt lagres lokalt</p>`);
+      <p class="info-foot">Earn coins in every game, from badges and the daily challenge · everything is saved locally</p>`);
     modalEl.querySelectorAll('[data-buy]').forEach((b) => b.addEventListener('click', () => {
       const id = b.dataset.buy, kind = b.dataset.kind;
       const P2 = getProgress();
       if (!P2.owned[id]) {
         const r = buy(id);
-        if (!r.ok) { sfx.die(); toast(r.reason === 'coins' ? 'Ikke nok mynter ennå 🪙' : 'Allerede kjøpt'); return; }
-        sfx.coin(); toast('Kjøpt! 🛒');
+        if (!r.ok) { sfx.die(); toast(r.reason === 'coins' ? 'Not enough coins yet 🪙' : 'Already owned'); return; }
+        sfx.coin(); toast('Bought! 🛒');
       } else sfx.select();
       if (kind === 'theme') setTheme(id); else equipSkin(id);
       draw(id);
     }));
     if (focusId) modalEl.querySelector(`[data-buy="${focusId}"]`)?.focus({ preventScroll: true });
   };
-  openModal('', { cls: 'wide', label: 'Butikk', onClose: () => { if (!currentGame) renderHome(); } });
+  openModal('', { cls: 'wide', label: 'Shop', onClose: () => { if (!currentGame) renderHome(); } });
   draw();
   modalEl.querySelector('[data-buy]')?.focus({ preventScroll: true });
 }
@@ -599,10 +599,10 @@ function openAchievements() {
   const P = getProgress();
   const done = ACHIEVEMENTS.filter((a) => P.ach[a.id]).length;
   openModal(`
-    <p class="info-kicker">MERKER</p>
+    <p class="info-kicker">BADGES</p>
     <h2 class="info-title">⭐ ${done} / ${ACHIEVEMENTS.length}</h2>
     <ul class="ach-list">${ACHIEVEMENTS.map((a) => `<li class="${P.ach[a.id] ? 'got' : ''}"><span class="ach-ic">${P.ach[a.id] ? '★' : '🔒'}</span><span><b>${esc(a.name)}</b><small>${esc(a.desc)}</small></span></li>`).join('')}</ul>
-    <p class="info-foot">Hvert merke gir +25 🪙 · totalt tjent: ${P.earned} 🪙</p>`, { cls: 'wide', label: 'Merker' });
+    <p class="info-foot">Each badge gives +25 🪙 · total earned: ${P.earned} 🪙</p>`, { cls: 'wide', label: 'Badges' });
 }
 
 // —— Arcade initials entry ——
@@ -614,20 +614,20 @@ function openInitials(id, score, refresh) {
   const draw = () => {
     if (phase !== 'enter') return;
     setModalInner(`
-      <p class="info-kicker">NY TOPPSCORE!</p>
+      <p class="info-kicker">NEW HIGH SCORE!</p>
       <h2 class="info-title">${esc(GAMES[id].title)} · ${score}</h2>
-      <p class="ini-help">Skriv initialene dine</p>
+      <p class="ini-help">Enter your initials</p>
       <div class="ini">${L.map((c, i) => `
         <div class="ini-slot${i === pos ? ' on' : ''}" data-slot="${i}">
-          <button type="button" class="ini-arrow" data-up="${i}" aria-label="Neste bokstav">▲</button>
+          <button type="button" class="ini-arrow" data-up="${i}" aria-label="Next letter">▲</button>
           <span class="ini-ch">${c}</span>
-          <button type="button" class="ini-arrow" data-down="${i}" aria-label="Forrige bokstav">▼</button>
+          <button type="button" class="ini-arrow" data-down="${i}" aria-label="Previous letter">▼</button>
         </div>`).join('')}</div>
       <div class="ini-actions">
-        <button type="button" class="btn chunky small" id="iniSend">SEND ▶</button>
-        <button type="button" class="btn chunky small ghost" id="iniSkip">HOPP OVER</button>
+        <button type="button" class="btn chunky small" id="iniSend">SUBMIT ▶</button>
+        <button type="button" class="btn chunky small ghost" id="iniSkip">SKIP</button>
       </div>
-      <p class="info-foot">Bokstaver / ↑↓ endre · ←→ flytt · Enter send · Esc hopp over<br>🎮 ↑↓←→ · A / ✕ neste/send · B / ○ hopp over</p>`);
+      <p class="info-foot">Letters / ↑↓ change · ←→ move · Enter submit · Esc skip<br>🎮 ↑↓←→ · A / ✕ next/submit · B / ○ skip</p>`);
     const spin = (i, d) => { L[i] = CHARS[(CHARS.indexOf(L[i]) + d + CHARS.length) % CHARS.length]; pos = i; sfx.move(); draw(); };
     modalEl.querySelectorAll('[data-up]').forEach((b) => b.addEventListener('click', () => spin(+b.dataset.up, 1)));
     modalEl.querySelectorAll('[data-down]').forEach((b) => b.addEventListener('click', () => spin(+b.dataset.down, -1)));
@@ -643,7 +643,7 @@ function openInitials(id, score, refresh) {
     const name = L.join('');
     saveInitials(name);
     nameLatest(id, score, name);
-    setModalInner(`<p class="info-kicker">TOPPLISTE</p><h2 class="info-title">${name} · ${score}</h2><p class="ini-help">Sender…</p>`);
+    setModalInner(`<p class="info-kicker">LEADERBOARD</p><h2 class="info-title">${name} · ${score}</h2><p class="ini-help">Submitting…</p>`);
     sfx.select();
     const r = await submitScore(id, name, score);
     if (!modalEl) return;
@@ -652,14 +652,14 @@ function openInitials(id, score, refresh) {
     if (r.ok) {
       unlock('online');
       const mark = r.scores.findIndex((e) => e.name === name && e.score === score);
-      html = `<p class="ini-help">${r.rank <= 10 ? `Du er nr ${r.rank} i verden! 🌐` : `Plass ${r.rank} globalt`}</p><ol class="board">${rows(r.scores, 10, mark)}</ol>`;
+      html = `<p class="ini-help">${r.rank <= 10 ? `You're #${r.rank} in the world! 🌐` : `#${r.rank} worldwide`}</p><ol class="board">${rows(r.scores, 10, mark)}</ol>`;
       sfx.level();
     } else {
-      html = `<p class="ini-help warn">${r.error === 'offline' ? 'Offline – lagret i den lokale topplisten.' : esc(r.error) + ' – lagret lokalt.'}</p><ol class="board">${rows(localList(id), 5)}</ol>`;
+      html = `<p class="ini-help warn">${r.error === 'offline' ? 'Offline – saved to the local leaderboard.' : esc(r.error) + ' – saved locally.'}</p><ol class="board">${rows(localList(id), 5)}</ol>`;
     }
-    setModalInner(`<p class="info-kicker">TOPPLISTE</p><h2 class="info-title">${esc(GAMES[id].title)}</h2>${html}
+    setModalInner(`<p class="info-kicker">LEADERBOARD</p><h2 class="info-title">${esc(GAMES[id].title)}</h2>${html}
       <div class="ini-actions"><button type="button" class="btn chunky small" id="iniOk">OK</button></div>
-      <p class="info-foot">Enter / A for å lukke · R / Start for ny runde</p>`);
+      <p class="info-foot">Enter / A to close · R / Start for a new round</p>`);
     modalEl.querySelector('#iniOk').addEventListener('click', () => closeModal(true));
     modalEl.querySelector('#iniOk').focus({ preventScroll: true });
     refresh?.(r.ok ? r.scores.findIndex((e) => e.name === name && e.score === score) : -1);
@@ -691,7 +691,7 @@ function openInitials(id, score, refresh) {
     else if (btn === 'start') send();
     else if (btn === 'b') closeModal(true);
   };
-  openModal('', { label: 'Skriv initialer', onKey, onPad, cls: 'ini-panel', onClose: () => refresh?.() });
+  openModal('', { label: 'Enter initials', onKey, onPad, cls: 'ini-panel', onClose: () => refresh?.() });
   draw();
 }
 
@@ -772,6 +772,6 @@ function onPad({ pad, btn, down, repeat }) {
 // tiny hook for automated tests / debugging
 window.__pixelnook = { get game() { return currentGame; }, get id() { return currentId; } };
 
-initGamepads(onPad, (gp, on) => toast(on ? '🎮 Kontroller tilkoblet' : '🎮 Kontroller frakoblet'));
+initGamepads(onPad, (gp, on) => toast(on ? '🎮 Controller connected' : '🎮 Controller disconnected'));
 
 renderHome();

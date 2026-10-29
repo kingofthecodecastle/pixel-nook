@@ -7,6 +7,7 @@ import { createMazeMunch } from './games/mazemunch.js';
 import { createStarBlaster } from './games/starblaster.js';
 import { createBrickBash } from './games/brickbash.js';
 import { createFrogHop } from './games/froghop.js';
+import { INFO } from './info.js';
 import { createAsteroidDrift } from './games/asteroiddrift.js';
 import { createPixelPaddle } from './games/pixelpaddle.js';
 import { createLadderClimb } from './games/ladderclimb.js';
@@ -165,6 +166,7 @@ function renderHome() {
         ${Object.values(GAMES).map((g) => `
           <button class="cart" data-game="${g.id}" role="listitem" style="--cart:${g.color};--accent:${g.accent}">
             <div class="cart-ridge"></div>
+            <span class="cart-info" data-info="${g.id}" role="button" tabindex="0" aria-label="Game info: ${g.title}" title="Game info">i</span>
             <div class="cart-label">
               <span class="cart-year">${g.year}</span>
               <span class="cart-title">${g.title}</span>
@@ -182,6 +184,11 @@ function renderHome() {
     </div>
   `;
 
+  app.querySelectorAll('.cart-info').forEach((el) => {
+    const open = (e) => { e.preventDefault(); e.stopPropagation(); sfx.click(); openInfo(el.dataset.info); };
+    el.addEventListener('click', open);
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') open(e); });
+  });
   app.querySelectorAll('.cart').forEach((btn) => {
     btn.addEventListener('click', () => {
       sfx.select();
@@ -207,7 +214,10 @@ function startGame(id) {
       <header class="play-bar">
         <button type="button" class="btn chunky small" id="backBtn">◀ CABINET</button>
         <div class="play-title" style="color:${meta.accent}">${meta.title}</div>
-        <button type="button" class="btn chunky small mute-btn" id="muteBtn">${isMuted() ? '🔇' : '🔊'}</button>
+        <div class="bar-right">
+          <button type="button" class="btn chunky small info-btn" id="infoBtn" aria-label="Game info" title="Game info">i</button>
+          <button type="button" class="btn chunky small mute-btn" id="muteBtn">${isMuted() ? '🔇' : '🔊'}</button>
+        </div>
       </header>
       <div class="hud">
         <div class="hud-item"><span class="lbl">SCORE</span><span id="scoreEl">0</span></div>
@@ -248,6 +258,7 @@ function startGame(id) {
       if (el) el.textContent = String(s);
     },
     onStatus(t) {
+      lastStatus = t;
       const el = app.querySelector('#statusEl');
       if (el) el.textContent = t;
     },
@@ -288,9 +299,10 @@ function startGame(id) {
     },
   };
 
+  lastStatus = 'Playing';
   currentGame = meta.factory(canvas, hooks);
 
-  keyHandler = (e) => currentGame?.onKey?.(e);
+  keyHandler = (e) => { if (infoEl) return; currentGame?.onKey?.(e); };
   // capture:true so Arrow keys aren't lost when a button has focus (macOS Chrome)
   window.addEventListener('keydown', keyHandler, { capture: true });
   // Held-input games (Cabinet 2) also listen for key releases
@@ -303,6 +315,7 @@ function startGame(id) {
     app.querySelector('#muteBtn').textContent = m ? '🔇' : '🔊';
     sfx.click();
   });
+  app.querySelector('#infoBtn').addEventListener('click', (e) => { e.currentTarget.blur(); sfx.click(); openInfo(id); });
   app.querySelector('#pauseBtn').addEventListener('click', () => currentGame?.togglePause());
   app.querySelector('#restartBtn').addEventListener('click', () => {
     currentGame?.restart();
@@ -354,6 +367,7 @@ function startGame(id) {
 }
 
 function teardownGame() {
+  closeInfo(false);
   if (raf) cancelAnimationFrame(raf);
   raf = 0;
   if (keyHandler) window.removeEventListener('keydown', keyHandler, { capture: true });
@@ -362,6 +376,62 @@ function teardownGame() {
   keyUpHandler = null;
   currentGame?.destroy?.();
   currentGame = null;
+}
+
+// —— Game info overlay ——
+let infoEl = null;
+let infoKey = null;
+let pausedByInfo = false;
+let lastStatus = 'Playing';
+
+function esc(t) { return String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+function openInfo(id) {
+  const meta = GAMES[id], info = INFO[id];
+  if (!meta || !info) return;
+  closeInfo(false);
+  pausedByInfo = false;
+  if (currentGame && lastStatus !== 'Paused') {
+    currentGame.togglePause?.();
+    pausedByInfo = lastStatus === 'Paused';
+  }
+  const list = (arr) => `<ul>${arr.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`;
+  infoEl = document.createElement('div');
+  infoEl.className = 'info-overlay';
+  infoEl.innerHTML = `
+    <div class="info-panel" role="dialog" aria-modal="true" aria-label="Game info: ${esc(meta.title)}" style="--accent:${meta.accent}">
+      <button type="button" class="info-close" aria-label="Lukk">✕</button>
+      <p class="info-kicker">GAME INFO</p>
+      <h2 class="info-title">${esc(meta.title)}</h2>
+      <div class="info-body">
+        <h3>MÅL</h3><p>${esc(info.goal)}</p>
+        <h3>TASTATUR</h3>${list(info.keys)}
+        <h3>TOUCH</h3>${list(info.touch)}
+        <h3>REGLER &amp; FARER</h3>${list(info.rules)}
+      </div>
+      <p class="info-foot">${currentGame ? (pausedByInfo || lastStatus === 'Paused' ? 'Spillet er pauset · ' : '') : ''}X / Esc / trykk utenfor for å lukke</p>
+    </div>`;
+  document.body.appendChild(infoEl);
+  infoEl.addEventListener('click', (e) => { if (e.target === infoEl) closeInfo(true); });
+  infoEl.querySelector('.info-close').addEventListener('click', () => closeInfo(true));
+  infoKey = (e) => {
+    e.stopPropagation();
+    if (e.key === 'Escape' || e.code === 'Escape') { e.preventDefault(); closeInfo(true); }
+    else if (e.key !== 'Tab') e.preventDefault();
+  };
+  window.addEventListener('keydown', infoKey, { capture: true });
+  infoEl.querySelector('.info-close').focus({ preventScroll: true });
+}
+
+function closeInfo(resume) {
+  if (!infoEl) return;
+  infoEl.remove();
+  infoEl = null;
+  window.removeEventListener('keydown', infoKey, { capture: true });
+  infoKey = null;
+  if (resume && pausedByInfo && currentGame && lastStatus === 'Paused') currentGame.togglePause?.();
+  pausedByInfo = false;
+  if (resume) sfx.click();
 }
 
 renderHome();

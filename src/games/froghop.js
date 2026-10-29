@@ -67,9 +67,9 @@ export function createFrogHop(canvas, hooks) {
         }
       } else if (lane && lane.kind === 'log') {
         const on = lane.objs.find((o) => f.x + C / 2 > o.x && f.x + C / 2 < o.x + lane.len * C);
-        if (!on) { die(g, 'Splash!'); return; }
+        if (!on) { die(g, 'Splash!', 'water'); return; }
         f.x += lane.dir * lane.speed * dt;
-        if (f.x < -C / 2 || f.x > W - C / 2) { die(g, 'Swept away!'); return; }
+        if (f.x < -C / 2 || f.x > W - C / 2) { f.x = Math.max(0, Math.min(W - C, f.x)); die(g, 'Swept away!', 'water'); return; }
       }
     },
     draw(ctx, g) {
@@ -126,7 +126,36 @@ export function createFrogHop(canvas, hooks) {
       }
       // frog
       const f = s.frog;
-      if (s.dead > 0) {
+      if (s.dead > 0 && s.deathKind === 'water') {
+        // splash: frog sinks, rings spread, droplets fly
+        const p = 1 - s.dead / 0.9, cx = f.x + C / 2, cy = f.row * C + C / 2;
+        if (p < 0.3) {
+          const k = 1 - p / 0.3;
+          ctx.globalAlpha = k;
+          sprite(ctx, FROG, f.x + 4 + (1 - k) * 6, f.row * C + 5 + (1 - k) * 8, 3 * Math.max(0.4, k), { 1: '#7CFC00', 2: '#111' });
+          ctx.globalAlpha = 1;
+        }
+        ctx.strokeStyle = '#e0f7ff';
+        ctx.lineWidth = 2;
+        for (let r = 0; r < 3; r++) {
+          const q = p - r * 0.15;
+          if (q <= 0 || q > 0.75) continue;
+          ctx.globalAlpha = 1 - q / 0.75;
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, 4 + q * 28, 2 + q * 12, 0, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        if (p < 0.6) {
+          ctx.fillStyle = '#ffffff';
+          for (let i = 0; i < 6; i++) {
+            const ang = -Math.PI / 2 + (i - 2.5) * 0.45;
+            const d = p * 40, up = Math.sin(p * Math.PI / 0.6) * 14;
+            ctx.fillRect(cx + Math.cos(ang) * d - 2, cy + Math.sin(ang) * d * 0.4 - up - 2, 4, 4);
+          }
+        }
+        if (p < 0.8) g.text('SPLASH!', Math.max(36, Math.min(W - 36, cx)), cy - 18, 7, '#e0f7ff');
+      } else if (s.dead > 0) {
         ctx.fillStyle = Math.floor(s.dead * 10) % 2 ? '#ff4d6d' : '#fff';
         ctx.fillRect(f.x + 8, f.row * C + 8, 16, 16);
       } else {
@@ -165,8 +194,9 @@ export function createFrogHop(canvas, hooks) {
     s.dead = 0;
   }
 
-  function die(g, why) {
+  function die(g, why, kind = 'hit') {
     g.s.dead = 0.9;
+    g.s.deathKind = kind;
     if (!g.hit()) g.note(why);
   }
 

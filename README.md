@@ -27,7 +27,7 @@ Twelve cartridges, all original names and pixel art, all running in the browser 
 
 ## Controls
 
-All carts: **P / Esc** pause · **R** restart after game over · ◀ CABINET back · sound toggle (saved in localStorage).
+All carts: **(i)** game info in Norwegian (goal, controls, rules — also on each cart in the menu; pauses the game, close with X / Esc / tap outside) · **P / Esc** pause · **R** restart after game over · ◀ CABINET back · sound toggle (saved in localStorage).
 On phones/tablets use the on-screen D-pad and the red **●** button (hold works for steering, thrust and auto-fire).
 
 | Cart | Keyboard | Touch |

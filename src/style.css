@@ -387,3 +387,47 @@ html, body {
   .crt-frame { padding: 14px 10px 18px; }
   .pad-btn { width: 44px; height: 44px; }
 }
+
+/* —— Home: fit the whole cabinet in a laptop viewport (desktop only) —— */
+@media (min-width: 761px) {
+  #app:has(.crt-frame.home) { padding: clamp(6px, 1.4vh, 16px) clamp(8px, 1.4vw, 24px); }
+  .crt-frame.home {
+    width: min(1640px, 100%);
+    padding: clamp(10px, 1.8vh, 20px) clamp(16px, 2vw, 32px) clamp(12px, 2.2vh, 24px);
+  }
+  .home .brand { padding: clamp(6px, 1.6vh, 18px) 8px clamp(2px, 0.6vh, 8px); }
+  .home .logo-mark { font-size: clamp(14px, 3vh, 28px); margin-bottom: clamp(2px, 0.8vh, 8px); }
+  .home .brand h1 { font-size: clamp(18px, 3.8vh, 34px); }
+  .home .tagline { margin-top: clamp(4px, 1.1vh, 12px); }
+  .home .select-label { margin: clamp(6px, 1.8vh, 18px) 0 clamp(6px, 1.5vh, 16px); }
+  .home .cart-row {
+    --cw: clamp(150px, 20vw, 190px);
+    grid-template-columns: repeat(4, var(--cw));
+    gap: clamp(10px, 2vh, 20px) clamp(12px, 1.6vw, 24px);
+    padding: 4px 8px clamp(6px, 1.6vh, 16px);
+  }
+  .home .cart { width: var(--cw); padding: clamp(6px, 1.1vh, 10px) 10px clamp(8px, 1.3vh, 12px); }
+  .home .cart-ridge { margin-bottom: clamp(5px, 1vh, 10px); }
+  .home .cart-chip { margin-bottom: clamp(5px, 1vh, 10px); height: clamp(10px, 1.6vh, 14px); }
+  .home .cart-blurb { margin-bottom: clamp(5px, 1vh, 10px); }
+  /* compact high-score panel: top 3 */
+  .home .cart-hs { min-height: 0; height: 40px; padding: 4px 6px; overflow: hidden; }
+  .home .cart-hs li { padding: 1px 0; }
+  .home .cart-hs li:nth-child(n + 4) { display: none; }
+  .home .cart-hs .empty { height: 100%; align-items: center; }
+  .home .home-foot { flex-direction: row; justify-content: center; gap: 20px; padding: 4px 8px; }
+}
+/* wide screens: widen the cabinet, 6 × 2 */
+@media (min-width: 1100px) {
+  .home .cart-row {
+    --cw: clamp(150px, calc((100vw - 260px) / 6), 210px);
+    grid-template-columns: repeat(6, var(--cw));
+  }
+}
+/* mid widths (4 × 3) on short windows: tighten a little more */
+@media (min-width: 761px) and (max-width: 1099px) and (max-height: 860px) {
+  .home .logo-mark { display: none; }
+  .home .cart-blurb { min-height: 20px; }
+  .home .cart-hs { height: 32px; }
+  .home .cart-row { gap: clamp(8px, 1.4vh, 16px) clamp(12px, 1.6vw, 24px); }
+}

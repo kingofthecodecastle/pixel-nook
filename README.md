@@ -17,7 +17,7 @@ Twelve cartridges, all original names and pixel art, all running in the browser 
 | **Maze Munch** | Eat dots in a maze while a ghost chases you. 3 lives. |
 | **Star Blaster** | Shoot down waves of aliens from your ship at the bottom. Each wave is faster. 3 lives. |
 | **Brick Bash** | Bounce the ball with your paddle and smash every brick. Catch power-ups: **W** wide paddle, **M** multiball, **S** slow ball, **+** extra life. |
-| **Frog Hop** | Cross five lanes of traffic, then ride logs over the river into the 4 home slots before the timer runs out. |
+| **Frog Hop** | Cross five lanes of traffic, then ride logs over the river and fill all **4** homes before the timer runs out. |
 | **Asteroid Drift** | Free-flying ship with thrust and wrap-around space. Big rocks split into smaller, faster rocks. |
 | **Pixel Paddle** | Table tennis, first to 7. Play the CPU or a friend on the same keyboard. |
 | **Ladder Climb** | Climb ladders and jump the rolling barrels to reach the goal at the top. Jumping a barrel = +100. |

@@ -71,7 +71,7 @@ const GAMES = {
     year: "'84",
     color: '#00b894',
     accent: '#55efc4',
-    blurb: 'Dodge cars. Ride logs. Get home.',
+    blurb: 'Dodge cars. Ride logs. Fill 4 homes.',
     factory: createFrogHop,
     extraLabel: 'LIVES',
   },

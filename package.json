@@ -2,7 +2,7 @@
   "name": "pixel-nook",
   "version": "1.0.0",
   "private": true,
-  "description": "Pixel Nook — Swap a cart. Play like it's 1989. Retro cartridge cabinet with ten games: Snake, Block Drop, Maze Munch, Star Blaster, Brick Bash, Frog Hop, Asteroid Drift, Pixel Paddle, Ladder Climb and Neon Racer.",
+  "description": "Pixel Nook — Swap a cart. Play like it's 1989. Retro cartridge cabinet with twelve games: Snake, Block Drop, Maze Munch, Star Blaster, Brick Bash, Frog Hop, Asteroid Drift, Pixel Paddle, Ladder Climb, Neon Racer, Moon Drop and Tank Duel.",
   "type": "module",
   "scripts": {
     "dev": "vite",

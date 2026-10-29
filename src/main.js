@@ -11,6 +11,8 @@ import { createAsteroidDrift } from './games/asteroiddrift.js';
 import { createPixelPaddle } from './games/pixelpaddle.js';
 import { createLadderClimb } from './games/ladderclimb.js';
 import { createNeonRacer } from './games/neonracer.js';
+import { createMoonDrop } from './games/moondrop.js';
+import { createTankDuel } from './games/tankduel.js';
 
 const GAMES = {
   snake: {
@@ -112,6 +114,26 @@ const GAMES = {
     blurb: 'Endless road. Swerve. Go fast.',
     factory: createNeonRacer,
     extraLabel: 'LIVES',
+  },
+  moondrop: {
+    id: 'moondrop',
+    title: 'MOON DROP',
+    year: "'80",
+    color: '#2d3a6a',
+    accent: '#fdcb6e',
+    blurb: 'Easy on the throttle. Land it.',
+    factory: createMoonDrop,
+    extraLabel: 'LIVES',
+  },
+  tankduel: {
+    id: 'tankduel',
+    title: 'TANK DUEL',
+    year: "'85",
+    color: '#6b4a1e',
+    accent: '#c8a165',
+    blurb: 'Maze battle. Shots bounce.',
+    factory: createTankDuel,
+    extraLabel: 'CPU',
   },
 };
 

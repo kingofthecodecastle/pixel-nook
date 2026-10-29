@@ -8,7 +8,7 @@ Free. No backend. No ads. Just beeps and pixels.
 
 ## Games
 
-Ten cartridges, all original names and pixel art, all running in the browser with no downloads.
+Twelve cartridges, all original names and pixel art, all running in the browser with no downloads.
 
 | Cart | What you do |
 |------|-------------|
@@ -22,6 +22,8 @@ Ten cartridges, all original names and pixel art, all running in the browser wit
 | **Pixel Paddle** | Table tennis, first to 7. Play the CPU or a friend on the same keyboard. |
 | **Ladder Climb** | Climb ladders and jump the rolling barrels to reach the goal at the top. Jumping a barrel = +100. |
 | **Neon Racer** | Endless synthwave highway. Swerve around traffic, boost for extra points. |
+| **Moon Drop** | Ease your lander down onto a flat pad with limited fuel. Touch down slowly and level — smaller pads score ×2/×3. Each level adds gravity, a narrower pad and (from level 3) wind. 3 lives. |
+| **Tank Duel** | Tank battle in a fresh maze each round. Shots bounce off walls (watch out for your own!). First to 5 wins — vs the CPU or a friend on the same keyboard. |
 
 ## Controls
 
@@ -40,8 +42,10 @@ On phones/tablets use the on-screen D-pad and the red **●** button (hold works
 | Pixel Paddle | Menu: ↑/↓ + Space, or 1 / 2. 1P: ↑/↓ or W/S. 2P: left W/S, right ↑/↓ | ▲ ▼ move (left paddle) · ● start |
 | Ladder Climb | ←/→ walk · ↑/↓ climb at a ladder · Space (or ↑ away from a ladder) jump | D-pad · ● jump |
 | Neon Racer | ←/→ steer · ↑ or Space boost · ↓ brake | D-pad · ● boost |
+| Moon Drop | ←/→ rotate · ↑ or Space thrust (hold) | ◀ ▶ rotate · ▲ / ● thrust |
+| Tank Duel | Menu: ↑/↓ + Space, or 1 / 2. 1P: arrows/WASD drive · Space/Enter/F fire. 2P: left WASD + Space/F/Q fire, right arrows + Enter/Shift-right/. fire | D-pad drive (left tank) · ● fire / start |
 
-High scores: top **5** per game, stored in `localStorage`. Pixel Paddle saves scores in 1-player mode only.
+High scores: top **5** per game, stored in `localStorage`. Pixel Paddle and Tank Duel save scores in 1-player mode only.
 
 ## Run locally
 
@@ -79,7 +83,7 @@ Or: `npx vercel` from this folder after login.
 
 Vite + vanilla JavaScript · Canvas 2D · Web Audio API · CSS CRT/scanlines · localStorage
 
-The seven newer carts share a tiny engine in `src/games/kit.js` (held keys + touch, pause/game-over overlays, high scores). The original three carts are unchanged.
+The nine newer carts share a tiny engine in `src/games/kit.js` (held keys + touch, pause/game-over overlays, high scores). The original three carts are unchanged.
 
 ## License
 

@@ -131,11 +131,14 @@ html, body {
 }
 
 .cart-row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, 160px);
   gap: 16px;
   justify-content: center;
   padding: 4px 8px 16px;
+}
+@media (max-width: 760px) {
+  .cart-row { grid-template-columns: repeat(3, 160px); }
 }
 
 .cart {
@@ -374,6 +377,10 @@ html, body {
 
 @media (min-width: 700px) {
   .touch-pad { opacity: 0.55; }
+}
+@media (max-width: 580px) {
+  .cart-row { grid-template-columns: repeat(2, 140px); gap: 12px; }
+  .cart { width: 140px; }
 }
 @media (max-width: 520px) {
   .cart { width: 140px; }

@@ -1,5 +1,7 @@
 import './style.css';
-import { sfx, isMuted, toggleMute, startMusic, stopMusic, resumeAudio } from './audio.js';
+import { sfx, isMuted, toggleMute, startMusic, stopMusic, resumeAudio, setRoom } from './audio.js';
+import { captureCanvas } from './three/capture.js';
+import { setFxWidth } from './fx.js';
 import { getHighScores, nameLatest } from './storage.js';
 import { INFO, PAD_COMMON } from './info.js';
 import {
@@ -151,6 +153,44 @@ let keyUpHandler = null;
 let screenFlashEl = null;
 let lastStatus = 'Playing';
 
+// —— 3D: the arcade room (menu) and the per-game 3D view load in the background; plain 2D if WebGL is missing ——
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const webgl = (() => {
+  if (new URLSearchParams(location.search).get('3d') === '0') return false;
+  try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; }
+})();
+let GV = null;       // gameview module once loaded
+let room = null;     // 3D arcade room
+let view = null;     // 3D view of the running cart
+let cap = null;      // draw-call capture of the running cart
+let returnFrom = null;
+let launching = false;
+const threeReady = webgl
+  ? Promise.all([import('./three/gameview.js'), import('./three/room.js')]).then(([gv, rm]) => {
+      GV = gv;
+      room = rm.createRoom(GAMES);
+      if (room) {
+        document.documentElement.classList.add('has3d');
+        if (app.querySelector('.home')) { room.start(); room.focus(null); }
+        else room.stop();
+      }
+    }).catch((e) => { console.warn('3D unavailable, using 2D', e); })
+  : Promise.resolve();
+
+/** Menu -> game: camera flies into the cabinet, then the cart boots. */
+async function launch(id) {
+  if (launching) return;
+  launching = true;
+  sfx.whoosh();
+  app.querySelector('.home')?.classList.add('leaving');
+  try {
+    await Promise.race([threeReady, sleep(2500)]);
+    if (room?.running && !reduceMotion) await Promise.race([room.flyTo(id, 0.6), sleep(900)]);
+  } finally { launching = false; }
+  startGame(id);
+}
+
 const CRT_KEY = 'pixelnook_crt';
 const isCrt = () => localStorage.getItem(CRT_KEY) === '1';
 function applyCrt() { document.documentElement.classList.toggle('crt', isCrt()); }
@@ -194,6 +234,9 @@ window.addEventListener('keydown', unlockAudio, { capture: true });
 
 function renderHome() {
   teardownGame();
+  setRoom(true);
+  if (room) { room.start(); room.focus(null); if (returnFrom && !reduceMotion) room.pullBack(returnFrom); }
+  returnFrom = null;
   const d = dailyChallenge();
   const P = getProgress();
   const achDone = ACHIEVEMENTS.filter((a) => P.ach[a.id]).length;
@@ -247,9 +290,12 @@ function renderHome() {
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') open(e); });
   });
   app.querySelectorAll('.cart').forEach((btn) => {
-    btn.addEventListener('click', () => { sfx.select(); startGame(btn.dataset.game); });
+    btn.addEventListener('click', () => { sfx.select(); launch(btn.dataset.game); });
+    btn.addEventListener('mouseenter', () => room?.focus(btn.dataset.game));
+    btn.addEventListener('focus', () => room?.focus(btn.dataset.game));
+    btn.addEventListener('mouseleave', () => room?.focus(null));
   });
-  app.querySelector('#dailyBtn').addEventListener('click', () => { sfx.select(); startGame(d.game); });
+  app.querySelector('#dailyBtn').addEventListener('click', () => { sfx.select(); launch(d.game); });
   app.querySelector('#muteBtn').addEventListener('click', () => { toggleMute(); sfx.click(); renderHome(); });
   app.querySelector('#boardBtn').addEventListener('click', () => { sfx.click(); openBoard(d.game); });
   app.querySelector('#shopBtn').addEventListener('click', () => { sfx.click(); openShop(); });
@@ -277,6 +323,8 @@ function startGame(id) {
   if (!meta) return;
   teardownGame();
   stopMusic(true);
+  room?.stop();
+  setRoom(false);
   currentId = id;
   markPlayed(id);
 
@@ -324,6 +372,7 @@ function startGame(id) {
 
   screenFlashEl = app.querySelector('#screenFlash');
   const canvas = app.querySelector('#gameCanvas');
+  cap = captureCanvas(canvas);
   const noSaveNow = () => !!currentGame?._debug?.()?.noSave;
   const showBoard = (mark = -1) => {
     const hs = app.querySelector('#hsLive'), title = app.querySelector('#hsTitle');
@@ -366,6 +415,7 @@ function startGame(id) {
       }
     },
     onFlash(kind) {
+      view?.flash(kind);
       if (!screenFlashEl) return;
       screenFlashEl.className = 'screen-flash show ' + kind;
       clearTimeout(screenFlashEl._t);
@@ -388,6 +438,20 @@ function startGame(id) {
 
   lastStatus = 'Playing';
   currentGame = meta.factory(canvas, hooks);
+  cap.W = canvas.width; cap.H = canvas.height;
+  setFxWidth(canvas.width);
+  const screenEl = app.querySelector('.screen');
+  try { view = GV ? GV.createGameView(screenEl, cap, id, meta.accent) : null; } catch (e) { console.warn('3D view failed, using 2D', e); view = null; }
+  cap.mode3d = !!view;
+  if (view) {
+    screenEl.classList.add('is3d');
+    view.canvas.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      const v = view; view = null; if (cap) cap.mode3d = false;
+      screenEl.classList.remove('is3d');
+      setTimeout(() => v?.dispose(), 0);
+    });
+  }
 
   keyHandler = (e) => { if (modalEl) return; currentGame?.onKey?.(e); };
   // capture:true so Arrow keys aren't lost when a button has focus (macOS Chrome)
@@ -396,7 +460,11 @@ function startGame(id) {
   keyUpHandler = (e) => currentGame?.onKeyUp?.(e);
   window.addEventListener('keyup', keyUpHandler, { capture: true });
 
-  app.querySelector('#backBtn').addEventListener('click', () => { sfx.blip(); renderHome(); });
+  app.querySelector('#backBtn').addEventListener('click', async () => {
+    sfx.whooshOut();
+    if (view && !reduceMotion) await Promise.race([view.outro(), sleep(450)]);
+    if (currentId === id) renderHome();
+  });
   app.querySelector('#muteBtn').addEventListener('click', () => {
     const m = toggleMute();
     app.querySelector('#muteBtn').textContent = m ? '🔇' : '🔊';
@@ -441,7 +509,9 @@ function startGame(id) {
   act.addEventListener('pointerleave', actUp);
 
   const loop = (now) => {
+    cap?.begin();
     currentGame?.update(now);
+    view?.render(now);
     raf = requestAnimationFrame(loop);
   };
   raf = requestAnimationFrame(loop);
@@ -457,7 +527,11 @@ function teardownGame() {
   keyUpHandler = null;
   currentGame?.destroy?.();
   currentGame = null;
+  if (currentId) returnFrom = currentId;
   currentId = null;
+  view?.dispose();
+  view = null;
+  cap = null;
 }
 
 // —— Modal chassis (info, leaderboard, shop, achievements, initials) ——
@@ -770,7 +844,7 @@ function onPad({ pad, btn, down, repeat }) {
   } else if (btn === 'x') { sfx.click(); openBoard(dailyChallenge().game); }
 }
 // tiny hook for automated tests / debugging
-window.__pixelnook = { get game() { return currentGame; }, get id() { return currentId; } };
+window.__pixelnook = { get game() { return currentGame; }, get id() { return currentId; }, get view() { return view; }, get room() { return room; }, threeReady };
 
 initGamepads(onPad, (gp, on) => toast(on ? '🎮 Controller connected' : '🎮 Controller disconnected'));
 

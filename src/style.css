@@ -657,3 +657,18 @@ html, body {
 @media (max-width: 580px) {
   .daily { font-size: 6px; gap: 6px; padding: 6px 8px; max-width: 100%; }
 }
+
+/* —— 3D: arcade room behind the menu, 3D view under each game's 2D overlay —— */
+#room3d { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 0; display: block; pointer-events: none; }
+#app { position: relative; z-index: 1; }
+:root.has3d .crt-frame.home {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--wood-light) 46%, transparent), color-mix(in srgb, var(--wood) 58%, transparent));
+  box-shadow: 0 0 0 2px var(--frame-out, #000), 0 0 60px rgba(255, 63, 164, 0.18), 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+:root.has3d .crt-frame.home .scanlines { opacity: 0.35; }
+.crt-frame.home { transition: opacity 0.35s ease, transform 0.5s cubic-bezier(.5, 0, .2, 1), filter 0.35s; }
+.crt-frame.home.leaving { opacity: 0; transform: scale(1.08); filter: blur(3px); pointer-events: none; }
+.screen .gl3d { position: absolute; left: 3px; top: 3px; z-index: 0; display: block; border-radius: 3px; }
+.screen.is3d #gameCanvas { position: relative; z-index: 1; background: transparent; box-shadow: 0 0 30px rgba(51, 255, 102, 0.12); }
+:root.crt .screen.is3d .gl3d { border-radius: 20px / 28px; filter: saturate(1.3) contrast(1.1) brightness(1.12); }
+@media (prefers-reduced-motion: reduce) { .crt-frame.home { transition: none; } }

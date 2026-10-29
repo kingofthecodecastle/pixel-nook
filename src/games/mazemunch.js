@@ -278,7 +278,7 @@ export function createMazeMunch(canvas, hooks) {
   function update(now) {
     mouth += 0.25;
     if (alive && !paused) {
-      const dt = now - last;
+      const dt = Math.min(Math.max(now - last, 0), 100);
       last = now;
       moveAcc += dt;
       ghostAcc += dt;

@@ -5,7 +5,7 @@ import { emit } from '../fx.js';
 const CS = 32, GC = 10, GR = 8, WT = 4;
 const W = CS * GC, H = CS * GR;
 const WIN = 5, TR = 9;
-const P1_FIRE = ['Space', 'KeyF', 'KeyQ'];
+const P1_FIRE = ['Space', 'KeyQ'];
 const P2_FIRE = ['Enter', 'NumpadEnter', 'Slash', 'Period', 'ShiftRight'];
 
 function makeMaze() {
@@ -48,7 +48,7 @@ const circleHits = (x, y, rad, R) => {
 export function createTankDuel(canvas, hooks) {
   return makeGame(canvas, hooks, {
     id: 'tankduel', W, H,
-    extraKeys: ['Digit1', 'Digit2', 'Numpad1', 'Numpad2', 'KeyF', 'KeyQ', 'Slash', 'Period', 'ShiftRight'],
+    extraKeys: ['Digit1', 'Digit2', 'Numpad1', 'Numpad2', 'KeyQ', 'Slash', 'Period', 'ShiftRight'],
     init(g) {
       const s = g.s;
       s.mode = null; s.sel = 0; s.round = 0;

@@ -3,7 +3,7 @@ import { sfx, isMuted, toggleMute, startMusic, stopMusic, resumeAudio, setRoom }
 import { captureCanvas } from './three/capture.js';
 import { setFxWidth } from './fx.js';
 import { getHighScores, nameLatest } from './storage.js';
-import { INFO, PAD_COMMON } from './info.js';
+import { INFO, PAD_COMMON, KEYS_COMMON } from './info.js';
 import {
   ACHIEVEMENTS, THEMES, SKINS, getProgress, onProgress, markPlayed, finishGame, checkDaily, dailyChallenge,
   buy, setTheme, equipSkin, applyTheme, gameName, unlock,
@@ -178,6 +178,76 @@ const threeReady = webgl
     }).catch((e) => { console.warn('3D unavailable, using 2D', e); })
   : Promise.resolve();
 
+// —— big labelled buttons: sound / info / fullscreen ——
+const ICON = {
+  on: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg>',
+  off: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" fill="currentColor"/><path d="M16 9l6 6M22 9l-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
+  info: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.4" fill="none"/><path d="M12 10.5v7" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/><circle cx="12" cy="6.8" r="1.7" fill="currentColor"/></svg>',
+  fs: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9V3h6M15 3h6v6M21 15v6h-6M9 21H3v-6" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="square"/></svg>',
+  fsx: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v6H3M21 9h-6V3M15 21v-6h6M3 15h6v6" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="square"/></svg>',
+};
+const soundHtml = () => (isMuted() ? ICON.off + '<span>SOUND OFF</span>' : ICON.on + '<span>SOUND ON</span>');
+const fsHtml = () => (isFs() ? ICON.fsx + '<span>EXIT FULL</span>' : ICON.fs + '<span>FULLSCREEN</span>');
+function refreshButtons() {
+  app.querySelectorAll('.mute-btn').forEach((b) => { b.innerHTML = soundHtml(); b.setAttribute('aria-pressed', String(!isMuted())); b.title = isMuted() ? 'Sound is off: click to turn on' : 'Sound is on: click to mute'; });
+  app.querySelectorAll('.fs-btn').forEach((b) => { b.innerHTML = fsHtml(); b.setAttribute('aria-pressed', String(isFs())); b.title = isFs() ? 'Exit fullscreen (F / Esc)' : 'Fullscreen (F)'; });
+}
+
+// —— fullscreen: real Fullscreen API where allowed, otherwise a pseudo-fullscreen that fills the viewport (iPhone Safari, gamepad presses) ——
+const rootEl = document.documentElement;
+const nativeFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+const isFs = () => nativeFs() || rootEl.classList.contains('pseudo-fs');
+function setPseudoFs(on) {
+  rootEl.classList.toggle('pseudo-fs', on);
+  fsChanged();
+}
+function fsChanged() {
+  rootEl.classList.toggle('is-fs', isFs());
+  refreshButtons();
+  requestAnimationFrame(() => { fitCanvas(); view?.resize?.(); });
+}
+function enterFs() {
+  const req = rootEl.requestFullscreen || rootEl.webkitRequestFullscreen;
+  const can = document.fullscreenEnabled || document.webkitFullscreenEnabled;
+  if (!req || !can) return setPseudoFs(true);
+  try {
+    const r = req.call(rootEl, { navigationUI: 'hide' });
+    if (r && r.catch) r.catch(() => setPseudoFs(true)); // e.g. no user activation (gamepad)
+  } catch (_) { setPseudoFs(true); }
+}
+function exitFs() {
+  if (rootEl.classList.contains('pseudo-fs')) setPseudoFs(false);
+  if (nativeFs()) { const ex = document.exitFullscreen || document.webkitExitFullscreen; try { const r = ex?.call(document); r?.catch?.(() => {}); } catch (_) {} }
+}
+function toggleFullscreen() { sfx.click(); if (isFs()) exitFs(); else enterFs(); }
+document.addEventListener('fullscreenchange', fsChanged);
+document.addEventListener('webkitfullscreenchange', fsChanged);
+window.addEventListener('keydown', (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+  if (document.querySelector('.ini-panel')) return; // typing initials
+  if (e.code === 'KeyF' && !e.repeat) { e.preventDefault(); e.stopImmediatePropagation(); toggleFullscreen(); }
+  else if (e.code === 'Escape' && rootEl.classList.contains('pseudo-fs') && !modalEl) { setPseudoFs(false); }
+}, { capture: true });
+
+// —— in-game canvas fit: largest size that keeps the aspect ratio ——
+const wideLayout = () => matchMedia('(min-width: 900px) and (min-height: 480px)').matches;
+function fitCanvas() {
+  const wrap = app.querySelector('.canvas-wrap'), c = app.querySelector('#gameCanvas');
+  if (!wrap || !c || !c.width || !c.height) return;
+  const cs = getComputedStyle(wrap);
+  const aw = wrap.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 6;
+  let ah;
+  if (wideLayout()) ah = wrap.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - 6;
+  else ah = Math.max(220, innerHeight * (isFs() ? 0.66 : 0.6));
+  const s = Math.max(0.5, Math.min(aw / c.width, ah / c.height));
+  const w = Math.floor(c.width * s), h = Math.floor(c.height * s);
+  if (c.style.width !== w + 'px' || c.style.height !== h + 'px') { c.style.width = w + 'px'; c.style.height = h + 'px'; }
+}
+let fitRO = null;
+window.addEventListener('resize', () => fitCanvas());
+
 /** Menu -> game: camera flies into the cabinet, then the cart boots. */
 async function launch(id) {
   if (launching) return;
@@ -272,14 +342,15 @@ function renderHome() {
       </div>
       <footer class="home-foot">
         <div class="foot-btns">
-          <button type="button" class="btn chunky small mute-btn" id="muteBtn">${isMuted() ? '🔇 MUTED' : '🔊 SOUND'}</button>
+          <button type="button" class="btn chunky big-btn mute-btn" id="muteBtn">${soundHtml()}</button>
+          <button type="button" class="btn chunky big-btn fs-btn" id="fsBtn">${fsHtml()}</button>
           <button type="button" class="btn chunky small" id="boardBtn">🏆 LEADERBOARD</button>
           <button type="button" class="btn chunky small" id="shopBtn">🛒 SHOP</button>
           <button type="button" class="btn chunky small" id="achBtn">⭐ ${achDone}/${ACHIEVEMENTS.length}</button>
           <button type="button" class="btn chunky small${isCrt() ? ' on' : ''}" id="crtBtn" aria-pressed="${isCrt()}">📺 CRT ${isCrt() ? 'ON' : 'OFF'}</button>
           <span class="coins" title="Coins">🪙 <span id="coinCount">${P.coins}</span></span>
         </div>
-        <p class="hint">Arrows / WASD · Space fire/jump · P pause · R restart · 🎮 gamepad <span id="netState"></span></p>
+        <p class="hint">Arrows / WASD · Space fire/jump · P pause · R restart · F fullscreen · 🎮 gamepad <span id="netState"></span></p>
       </footer>
     </div>
   `;
@@ -297,6 +368,7 @@ function renderHome() {
   });
   app.querySelector('#dailyBtn').addEventListener('click', () => { sfx.select(); launch(d.game); });
   app.querySelector('#muteBtn').addEventListener('click', () => { toggleMute(); sfx.click(); renderHome(); });
+  app.querySelector('#fsBtn').addEventListener('click', (e) => { e.currentTarget.blur(); toggleFullscreen(); });
   app.querySelector('#boardBtn').addEventListener('click', () => { sfx.click(); openBoard(d.game); });
   app.querySelector('#shopBtn').addEventListener('click', () => { sfx.click(); openShop(); });
   app.querySelector('#achBtn').addEventListener('click', () => { sfx.click(); openAchievements(); });
@@ -336,8 +408,9 @@ function startGame(id) {
         <button type="button" class="btn chunky small" id="backBtn">◀ CABINET</button>
         <div class="play-title" style="color:${meta.accent}">${meta.title}</div>
         <div class="bar-right">
-          <button type="button" class="btn chunky small info-btn" id="infoBtn" aria-label="Game info" title="Game info">i</button>
-          <button type="button" class="btn chunky small mute-btn" id="muteBtn">${isMuted() ? '🔇' : '🔊'}</button>
+          <button type="button" class="btn chunky big-btn info-btn" id="infoBtn" aria-label="Game info" title="How to play (Y on gamepad)">${ICON.info}<span>INFO</span></button>
+          <button type="button" class="btn chunky big-btn mute-btn" id="muteBtn">${soundHtml()}</button>
+          <button type="button" class="btn chunky big-btn fs-btn" id="fsBtn">${fsHtml()}</button>
         </div>
       </header>
       <div class="hud">
@@ -439,6 +512,9 @@ function startGame(id) {
   lastStatus = 'Playing';
   currentGame = meta.factory(canvas, hooks);
   cap.W = canvas.width; cap.H = canvas.height;
+  fitCanvas();
+  fitRO?.disconnect();
+  if (window.ResizeObserver) { fitRO = new ResizeObserver(() => fitCanvas()); fitRO.observe(app.querySelector('.canvas-wrap')); }
   setFxWidth(canvas.width);
   const screenEl = app.querySelector('.screen');
   try { view = GV ? GV.createGameView(screenEl, cap, id, meta.accent) : null; } catch (e) { console.warn('3D view failed, using 2D', e); view = null; }
@@ -466,11 +542,12 @@ function startGame(id) {
     if (currentId === id) renderHome();
   });
   app.querySelector('#muteBtn').addEventListener('click', () => {
-    const m = toggleMute();
-    app.querySelector('#muteBtn').textContent = m ? '🔇' : '🔊';
+    toggleMute();
+    refreshButtons();
     sfx.click();
   });
   app.querySelector('#infoBtn').addEventListener('click', (e) => { e.currentTarget.blur(); sfx.click(); openInfo(id); });
+  app.querySelector('#fsBtn').addEventListener('click', (e) => { e.currentTarget.blur(); toggleFullscreen(); });
   app.querySelector('#pauseBtn').addEventListener('click', () => currentGame?.togglePause());
   app.querySelector('#restartBtn').addEventListener('click', () => { currentGame?.restart(); showBoard(); });
 
@@ -526,6 +603,7 @@ function teardownGame() {
   if (keyUpHandler) window.removeEventListener('keyup', keyUpHandler, { capture: true });
   keyUpHandler = null;
   currentGame?.destroy?.();
+  fitRO?.disconnect(); fitRO = null;
   currentGame = null;
   if (currentId) returnFrom = currentId;
   currentId = null;
@@ -596,7 +674,7 @@ function openInfo(id) {
       <h2 class="info-title">${esc(meta.title)}</h2>
       <div class="info-body">
         <h3>GOAL</h3><p>${esc(info.goal)}</p>
-        <h3>KEYBOARD</h3>${list(info.keys)}
+        <h3>KEYBOARD</h3>${list([...info.keys, ...KEYS_COMMON])}
         <h3>TOUCH</h3>${list(info.touch)}
         <h3>GAMEPAD</h3>${list([...(info.pad || []), ...PAD_COMMON])}
         <h3>RULES &amp; HAZARDS</h3>${list(info.rules)}
@@ -798,12 +876,13 @@ function navigate(dir, scope, skip = null) {
 const TWO_P = new Set(['pixelpaddle', 'tankduel']);
 const KEYSETS = {
   arrows: { up: ['ArrowUp', 'ArrowUp'], down: ['ArrowDown', 'ArrowDown'], left: ['ArrowLeft', 'ArrowLeft'], right: ['ArrowRight', 'ArrowRight'], a: ['Space', ' '], b: ['KeyX', 'x'] },
-  p1: { up: ['KeyW', 'w'], down: ['KeyS', 's'], left: ['KeyA', 'a'], right: ['KeyD', 'd'], a: ['Space', ' '], b: ['KeyF', 'f'] },
+  p1: { up: ['KeyW', 'w'], down: ['KeyS', 's'], left: ['KeyA', 'a'], right: ['KeyD', 'd'], a: ['Space', ' '], b: ['KeyQ', 'q'] },
   p2: { up: ['ArrowUp', 'ArrowUp'], down: ['ArrowDown', 'ArrowDown'], left: ['ArrowLeft', 'ArrowLeft'], right: ['ArrowRight', 'ArrowRight'], a: ['Enter', 'Enter'], b: ['Enter', 'Enter'] },
 };
 const fakeKey = (code, key, repeat = false) => ({ code, key, repeat, preventDefault() {}, stopPropagation() {} });
 
 function onPad({ pad, btn, down, repeat }) {
+  if (btn === 'rb' && down && !repeat && !modalEl) { toggleFullscreen(); return; }
   if (modalEl) {
     if (!down) return;
     if (modalCfg?.onPad) return modalCfg.onPad(btn, pad);

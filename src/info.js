@@ -89,7 +89,7 @@ export const INFO = {
   },
   tankduel: {
     goal: 'Tanks in a maze – first to 5 hits wins. New maze every round.',
-    keys: ['Menu: ↑/↓ + Space, or 1 / 2', '1P: arrows/WASD drive · Space/Enter/F fire', '2P: left WASD + Space/F/Q · right arrows + Enter/Shift/.'],
+    keys: ['Menu: ↑/↓ + Space, or 1 / 2', '1P: arrows/WASD drive · Space/Enter/Q fire', '2P: left WASD + Space/Q · right arrows + Enter/Shift/.'],
     pad: ['Menu: ↑/↓ + A / ✕', 'Drive with d-pad / stick · A / ✕: fire', '2P: controller 1 = green, controller 2 = red', 'Start: pause'],
     touch: ['D-pad: drive (left tank)', '●: fire / start'],
     rules: ['Shells bounce off walls – you can hit yourself!', 'Max 4 shells out at once.', 'High scores are only saved in 1-player mode.'],
@@ -97,4 +97,6 @@ export const INFO = {
 };
 
 // Shown under every game's gamepad section
-export const PAD_COMMON = ['Y / △: this info · Select / Share: back to the cabinet'];
+export const PAD_COMMON = ['Y / △: this info · Select / Share: back to the cabinet', 'RB / R1: fullscreen on/off'];
+// Shown under every game's keyboard section
+export const KEYS_COMMON = ['F: fullscreen on/off'];

@@ -672,3 +672,68 @@ html, body {
 .screen.is3d #gameCanvas { position: relative; z-index: 1; background: transparent; box-shadow: 0 0 30px rgba(51, 255, 102, 0.12); }
 :root.crt .screen.is3d .gl3d { border-radius: 20px / 28px; filter: saturate(1.3) contrast(1.1) brightness(1.12); }
 @media (prefers-reduced-motion: reduce) { .crt-frame.home { transition: none; } }
+
+/* —— Big labelled buttons: SOUND ON/OFF, INFO, FULLSCREEN —— */
+.btn.chunky.big-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 9px; padding: 8px 12px; min-height: 40px; line-height: 1; white-space: nowrap;
+}
+.big-btn .ico { width: 20px; height: 20px; flex: none; }
+.mute-btn.big-btn { min-width: 0; color: #b8ffcb; }
+.mute-btn.big-btn[aria-pressed="false"] { color: #ff9aa8; }
+.info-btn.big-btn { min-width: 0; color: #ffeaa7; font-weight: normal; }
+.fs-btn.big-btn { color: #9be7ff; }
+.bar-right .mute-btn { min-width: 0; }
+.home .foot-btns { align-items: center; }
+
+/* touch D-pad only on touch devices */
+@media not all and (any-pointer: coarse) { .touch-pad { display: none; } }
+@media (any-pointer: coarse) { .touch-pad { opacity: 1; } }
+
+/* in-game canvas is sized by fitCanvas() (keeps the aspect ratio) */
+#gameCanvas { max-width: none; }
+.canvas-wrap { min-width: 0; min-height: 0; }
+
+/* narrow screens: title on its own row, buttons on the next */
+@media (max-width: 620px) {
+  .play-bar { flex-wrap: wrap; row-gap: 8px; }
+  .play-bar .play-title { order: 1; flex-basis: calc(100% - 130px); }
+  .play-bar .bar-right { order: 2; width: 100%; justify-content: center; }
+  .btn.chunky.big-btn { font-size: 8px; padding: 7px 10px; min-height: 38px; gap: 6px; }
+  .big-btn .ico { width: 18px; height: 18px; }
+}
+
+/* —— Wide screens: big stage + side panel, no vertical scroll —— */
+@media (min-width: 900px) and (min-height: 480px) {
+  #app:has(.crt-frame.play) { height: 100vh; height: 100dvh; padding: clamp(6px, 1.2vh, 14px) clamp(8px, 1.2vw, 20px); }
+  .crt-frame.play {
+    width: 100%; max-width: 1800px; height: 100%;
+    padding: clamp(10px, 1.6vh, 18px) clamp(14px, 1.6vw, 26px);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(200px, 17vw, 270px);
+    grid-template-rows: auto auto auto auto minmax(0, 1fr);
+    grid-template-areas: "bar bar" "stage hud" "stage actions" "stage hs" "stage pad";
+    column-gap: clamp(10px, 1.4vw, 22px);
+  }
+  .crt-frame.play .play-bar { grid-area: bar; padding: 4px 6px 8px; }
+  .crt-frame.play .play-title { font-size: clamp(12px, 1.8vh, 18px); }
+  .crt-frame.play .canvas-wrap { grid-area: stage; align-items: center; justify-content: center; padding: 4px; overflow: hidden; }
+  .crt-frame.play .hud { grid-area: hud; flex-direction: column; flex-wrap: nowrap; gap: 8px; padding: 8px 0; font-size: 10px; }
+  .crt-frame.play .hud-item { min-width: 0; padding: 10px 12px; }
+  .crt-frame.play .hud-item .lbl { font-size: 7px; margin-bottom: 6px; }
+  .crt-frame.play .play-actions { grid-area: actions; padding: 4px 0; }
+  .crt-frame.play .play-actions .btn { flex: 1; font-size: 8px; padding: 10px 8px; }
+  .crt-frame.play .hs-panel { grid-area: hs; max-width: none; width: 100%; margin: 8px 0 0; font-size: 7px; overflow: hidden; }
+  .crt-frame.play .touch-pad { grid-area: pad; align-items: flex-end; }
+}
+
+/* —— Fullscreen (real or pseudo): fill nearly the whole screen —— */
+:root.pseudo-fs, :root.pseudo-fs body { height: 100%; overflow: hidden; }
+:root.pseudo-fs #app { position: fixed; inset: 0; z-index: 1; overflow: auto; }
+:root.is-fs #app { padding: 0 !important; }
+:root.is-fs .crt-frame { border-width: 3px; border-radius: 0; max-width: none; box-shadow: none; }
+:root.is-fs .crt-frame.home { width: 100%; min-height: 100%; }
+@media (min-width: 900px) and (min-height: 480px) {
+  :root.is-fs #app:has(.crt-frame.play) { height: 100vh; height: 100dvh; }
+  :root.is-fs .crt-frame.play { padding: 6px 12px 8px; }
+}

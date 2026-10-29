@@ -266,7 +266,7 @@ export function createBlockDrop(canvas, hooks) {
 
   function update(now) {
     if (alive && !paused) {
-      acc += now - last;
+      acc += Math.min(Math.max(now - last, 0), 250);
       last = now;
       while (acc >= dropMs) {
         acc -= dropMs;

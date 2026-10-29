@@ -161,7 +161,7 @@ export function createSnake(canvas, hooks) {
       draw();
       return;
     }
-    acc += now - last;
+    acc += Math.min(Math.max(now - last, 0), 250);
     last = now;
     while (acc >= tickMs) {
       acc -= tickMs;

@@ -379,7 +379,7 @@ function startGame(id) {
       if (noSave || score <= 0) return;
       const game = currentGame;
       setTimeout(() => {
-        if (currentGame !== game || modalEl) return;
+        if (currentGame !== game || modalEl || lastStatus !== 'Game Over') return;
         if (isOnline() === false || qualifies(id, score)) openInitials(id, score, showBoard);
         else { nameLatest(id, score, lastInitials()); showBoard(); toast('Ikke topp 10 denne gangen – prøv igjen!'); }
       }, 1100);

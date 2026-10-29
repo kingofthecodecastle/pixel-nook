@@ -13,6 +13,9 @@ const NAME_RE = /^[A-Z0-9]{3}$/;
 const BLOCKED = new Set(['ASS', 'FUK', 'FUC', 'FCK', 'SEX', 'KKK', 'NIG', 'FAG', 'CUM', 'TIT', 'DIK', 'COK', 'XXX', 'HOR', 'PIK', 'FAN', 'KUK', 'FIT']);
 const RATE_PER_MIN = 6;
 const RATE_PER_HOUR = 60;
+const GLOBAL_PER_MIN = 300; // flood guard across all clients
+// Removes the TST rows written while testing the API on launch day (29 Oct 2026); harmless afterwards.
+const TEST_CLEANUP_BEFORE = '2026-10-29T20:20:00Z';
 
 function conn() { return process.env.DATABASE_URL || process.env.POSTGRES_URL || ''; }
 
@@ -43,6 +46,7 @@ function ensureSchema() {
         created_at timestamptz NOT NULL DEFAULT now())`);
       await sql('CREATE INDEX IF NOT EXISTS scores_game_score ON scores (game, score DESC, created_at ASC)');
       await sql('CREATE INDEX IF NOT EXISTS scores_ip_time ON scores (ip_hash, created_at DESC)');
+      await sql("DELETE FROM scores WHERE name = 'TST' AND created_at < $1", [TEST_CLEANUP_BEFORE]);
     })().catch((e) => { ready = null; throw e; });
   }
   return ready;
@@ -108,7 +112,8 @@ export default async function handler(req, res) {
           count(*) FILTER (WHERE created_at > now() - interval '1 minute') AS m,
           count(*) FILTER (WHERE created_at > now() - interval '1 hour') AS h
         FROM scores WHERE ip_hash = $1 AND created_at > now() - interval '1 hour'`, [ip]);
-      if (Number(rate.m) >= RATE_PER_MIN || Number(rate.h) >= RATE_PER_HOUR) {
+      const [all] = await sql("SELECT count(*) AS n FROM scores WHERE created_at > now() - interval '1 minute'");
+      if (Number(rate.m) >= RATE_PER_MIN || Number(rate.h) >= RATE_PER_HOUR || Number(all.n) >= GLOBAL_PER_MIN) {
         res.setHeader('Retry-After', '60');
         return send(res, 429, { error: 'too many submissions, try again in a minute' });
       }

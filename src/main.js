@@ -186,8 +186,13 @@ const ICON = {
   fs: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9V3h6M15 3h6v6M21 15v6h-6M9 21H3v-6" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="square"/></svg>',
   cam: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h4l2-3h6l2 3h4v12H3z" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linejoin="round"/><circle cx="12" cy="13.5" r="3.6" stroke="currentColor" stroke-width="2.2" fill="none"/></svg>',
   world: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 19l6-9 4 5 3-4 7 8z" fill="currentColor"/><circle cx="17" cy="6" r="2.6" fill="currentColor"/></svg>',
+  pause: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4v16H6zM14 4h4v16h-4z" fill="currentColor"/></svg>',
+  play: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg>',
+  restart: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.4-5.7" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M20 3v6h-6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/></svg>',
   fsx: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v6H3M21 9h-6V3M15 21v-6h6M3 15h6v6" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="square"/></svg>',
 };
+const dockSound = () => (isMuted() ? ICON.off : ICON.on);
+const CAM_SHORT = { classic: 'CLASSIC', chase: 'CHASE', fp: '1ST' };
 const soundHtml = () => (isMuted() ? ICON.off + '<span>SOUND OFF</span>' : ICON.on + '<span>SOUND ON</span>');
 const fsHtml = () => (isFs() ? ICON.fsx + '<span>EXIT FULL</span>' : ICON.fs + '<span>FULLSCREEN</span>');
 // —— camera modes (per game) + steering preference + Snake world ——
@@ -208,6 +213,7 @@ function applyCam() {
   currentGame?.setCam?.(m);
   currentGame?.setRelative?.(m !== 'classic' && steerPref() === 'relative');
   const b = app.querySelector('#camBtn');
+  const dl = app.querySelector('#dockCamLbl'); if (dl) dl.textContent = CAM_SHORT[m];
   if (b) { b.innerHTML = camHtml(m); b.title = `Camera: ${CAM_LABEL[m].toLowerCase()} (C or LB to switch)`; b.dataset.mode = m; }
 }
 function cycleCam() {
@@ -233,6 +239,7 @@ async function toggleWorld() {
 
 function refreshButtons() {
   app.querySelectorAll('.mute-btn').forEach((b) => { b.innerHTML = soundHtml(); b.setAttribute('aria-pressed', String(!isMuted())); b.title = isMuted() ? 'Sound is off: click to turn on' : 'Sound is on: click to mute'; });
+  app.querySelectorAll('.dock-mute').forEach((b) => { b.innerHTML = dockSound(); b.setAttribute('aria-pressed', String(!isMuted())); b.title = isMuted() ? 'Sound off (click to turn on)' : 'Sound on (click to mute)'; });
   app.querySelectorAll('.fs-btn').forEach((b) => { b.innerHTML = fsHtml(); b.setAttribute('aria-pressed', String(isFs())); b.title = isFs() ? 'Exit fullscreen (F / Esc)' : 'Fullscreen (F)'; });
 }
 
@@ -246,8 +253,9 @@ function setPseudoFs(on) {
 }
 function fsChanged() {
   rootEl.classList.toggle('is-fs', isFs());
+  app.querySelector('.canvas-wrap')?.classList.remove('dock-reserve');
   refreshButtons();
-  requestAnimationFrame(() => { fitCanvas(); view?.resize?.(); });
+  requestAnimationFrame(() => { fitCanvas(); view?.resize?.(); requestAnimationFrame(placeDock); });
 }
 function enterFs() {
   const req = rootEl.requestFullscreen || rootEl.webkitRequestFullscreen;
@@ -283,14 +291,44 @@ function fitCanvas() {
   const cs = getComputedStyle(wrap);
   const aw = wrap.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 6;
   let ah;
-  if (wideLayout()) ah = wrap.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - 6;
+  if (wideLayout() || isFs()) ah = wrap.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - 6;
   else ah = Math.max(220, innerHeight * (isFs() ? 0.66 : 0.6));
   const s = Math.max(0.5, Math.min(aw / c.width, ah / c.height));
   const w = Math.floor(c.width * s), h = Math.floor(c.height * s);
   if (c.style.width !== w + 'px' || c.style.height !== h + 'px') { c.style.width = w + 'px'; c.style.height = h + 'px'; }
 }
+// —— fullscreen dock: sits just outside the board's bottom-right corner when there is room, else tucked inside it ——
+function placeDock() {
+  const dock = app.querySelector('#fsDock'), wrap = app.querySelector('.canvas-wrap');
+  if (!dock || !wrap || !isFs()) return;
+  const W = wrap.clientWidth, H = wrap.clientHeight, g = 8;
+  const wr = wrap.getBoundingClientRect();
+  let r = null;
+  const gl = view?.canvas, br = view?.boardRect?.();
+  if (gl && br) { const o = gl.getBoundingClientRect(); r = { left: o.left - wr.left + br.left, right: o.left - wr.left + br.right, top: o.top - wr.top + br.top, bottom: o.top - wr.top + br.bottom }; }
+  else { const c = app.querySelector('#gameCanvas').getBoundingClientRect(); r = { left: c.left - wr.left, right: c.right - wr.left, top: c.top - wr.top, bottom: c.bottom - wr.top }; }
+  const R = Math.min(r.right, W - g), B = Math.min(r.bottom, H - g);
+  // try the slim vertical dock beside the board first, then a row below it, else tucked inside the corner
+  dock.dataset.where = 'side';
+  let dw = dock.offsetWidth, dh = dock.offsetHeight, x, y, where;
+  if (W - r.right >= dw + g * 2 && dh + g * 2 <= H) { x = r.right + g; y = B - dh; where = 'side'; }
+  else {
+    dock.dataset.where = 'below'; dw = dock.offsetWidth; dh = dock.offsetHeight;
+    if (H - r.bottom >= dh + g * 2) { x = R - dw; y = r.bottom + g; where = 'below'; }
+    else if (!wrap.classList.contains('dock-reserve')) {
+      // board fills the stage both ways: reserve a slim band under it for the dock instead of covering the board
+      wrap.style.setProperty('--dock-h', (dh + g * 2 + 2) + 'px');
+      wrap.classList.add('dock-reserve');
+      requestAnimationFrame(() => { fitCanvas(); view?.resize?.(); requestAnimationFrame(placeDock); });
+      x = R - dw; y = H - dh - g; where = 'below';
+    } else { x = R - dw - g; y = B - dh - g; where = 'inside'; }
+  }
+  x = Math.max(g, Math.min(W - dw - g, x)); y = Math.max(g, Math.min(H - dh - g, y));
+  dock.style.left = Math.round(x) + 'px'; dock.style.top = Math.round(y) + 'px'; dock.dataset.where = where;
+}
+setInterval(() => { if (isFs() && currentGame) placeDock(); }, 250);
 let fitRO = null;
-window.addEventListener('resize', () => fitCanvas());
+window.addEventListener('resize', () => { app.querySelector('.canvas-wrap')?.classList.remove('dock-reserve'); fitCanvas(); });
 
 /** Menu -> game: camera flies into the cabinet, then the cart boots. */
 async function launch(id) {
@@ -465,6 +503,14 @@ function startGame(id) {
       </div>
       <div class="canvas-wrap">
         <div class="screen"><canvas id="gameCanvas"></canvas></div>
+        <div class="fs-dock" id="fsDock" aria-label="Fullscreen controls">
+          <span class="fs-score" title="Score"><i>SCORE</i> <b id="fsScore">0</b></span>
+          <button type="button" class="btn chunky dock-btn" id="dockPause" title="Pause / resume (P)">${ICON.pause}</button>
+          <button type="button" class="btn chunky dock-btn" id="dockRestart" title="Restart (R)">${ICON.restart}</button>
+          <button type="button" class="btn chunky dock-btn dock-mute" id="dockMute">${dockSound()}</button>
+          <button type="button" class="btn chunky dock-btn dock-cam" id="dockCam" title="Camera (C)">${ICON.cam}<span id="dockCamLbl">${CAM_SHORT[camOf(id)]}</span></button>
+          <button type="button" class="btn chunky dock-btn dock-exit" id="dockExit" title="Exit fullscreen (F / Esc)">${ICON.fsx}<span>EXIT</span></button>
+        </div>
       </div>
       <div class="play-actions">
         <button type="button" class="btn chunky small" id="pauseBtn">PAUSE</button>
@@ -507,12 +553,14 @@ function startGame(id) {
     onScore(s) {
       const el = app.querySelector('#scoreEl');
       if (el) el.textContent = String(s);
+      const fe = app.querySelector('#fsScore'); if (fe) fe.textContent = String(s);
       if (s > 0) checkDaily(id, s, noSaveNow());
     },
     onStatus(t) {
       lastStatus = t;
       const el = app.querySelector('#statusEl');
       if (el) el.textContent = t;
+      const dp = app.querySelector('#dockPause'); if (dp) { const pz = t === 'Paused'; dp.innerHTML = pz ? ICON.play : ICON.pause; dp.setAttribute('aria-label', pz ? 'Resume' : 'Pause'); }
     },
     onExtra(data) {
       const wrap = app.querySelector('#extraWrap');
@@ -602,6 +650,12 @@ function startGame(id) {
   if (!view) { app.querySelector('#camBtn').hidden = true; app.querySelector('#worldBtn')?.setAttribute('hidden', ''); }
   applyCam();
   app.querySelector('#pauseBtn').addEventListener('click', () => currentGame?.togglePause());
+  app.querySelector('#dockPause').addEventListener('click', (e) => { e.currentTarget.blur(); currentGame?.togglePause(); });
+  app.querySelector('#dockRestart').addEventListener('click', (e) => { e.currentTarget.blur(); currentGame?.restart(); showBoard(); });
+  app.querySelector('#dockMute').addEventListener('click', (e) => { e.currentTarget.blur(); toggleMute(); refreshButtons(); sfx.click(); });
+  app.querySelector('#dockCam').addEventListener('click', (e) => { e.currentTarget.blur(); cycleCam(); });
+  app.querySelector('#dockExit').addEventListener('click', (e) => { e.currentTarget.blur(); toggleFullscreen(); });
+  if (!view) app.querySelector('#dockCam').hidden = true;
   app.querySelector('#restartBtn').addEventListener('click', () => { currentGame?.restart(); showBoard(); });
 
   app.querySelectorAll('.pad-btn[data-dx]').forEach((btn) => {

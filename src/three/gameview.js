@@ -561,6 +561,17 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
     outro() {
       return new Promise((res) => { intro.t = 0; intro.dur = 0.38; intro.dir = -1; intro.active = true; intro.done = res; });
     },
+    /** Board + bezel bounding box in CSS px of the GL canvas (current camera), or null if part of it is behind the camera. */
+    boardRect() {
+      camera.updateMatrixWorld(true);
+      let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+      for (const q of fitPts) {
+        fitV.copy(q).project(camera);
+        if (fitV.z > 1 || fitV.z < -1) return null;
+        x0 = Math.min(x0, fitV.x); x1 = Math.max(x1, fitV.x); y0 = Math.min(y0, fitV.y); y1 = Math.max(y1, fitV.y);
+      }
+      return { left: (x0 + 1) / 2 * cw, right: (x1 + 1) / 2 * cw, top: (1 - y1) / 2 * ch, bottom: (1 - y0) / 2 * ch, w: cw, h: ch };
+    },
     setCamMode(m) { camMode = m; },
     getCamMode: () => camMode,
     setAvatar(fn) { avatarFn = fn; },

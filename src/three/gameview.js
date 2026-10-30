@@ -295,7 +295,7 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
       const r = rings.find((q) => q.userData.t >= 1) || rings[0];
       r.position.set(x, 2, z); r.material.color.set(ev.color || st.ring); r.userData.t = 0; r.userData.max = (st.wide ? W * 0.5 : 48) * (ev.scale || 1); r.visible = true;
     }
-    if (st.light) { flashLight.color.set(ev.color || st.light); flashLight.position.set(x, 36, z); flashI = Math.max(flashI, st.li * 4000); }
+    if (st.light && !ev.noLight) { flashLight.color.set(ev.color || st.light); flashLight.position.set(x, 36, z); flashI = Math.max(flashI, st.li * 4000); }
     if (st.shake) shake = Math.max(shake, st.shake * (ev.scale || 1));
   }
   const offFx = onFx(spawn);

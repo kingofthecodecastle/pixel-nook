@@ -162,9 +162,8 @@ export function createMazeMunch(canvas, hooks) {
       map[player.y][player.x] = 2;
       dotsLeft--;
       score += 10;
-      emit('eat', player.x * CELL + CELL / 2, player.y * CELL + CELL / 2, { scale: 0.5 });
-      flash = 4;
-      hooks.onFlash?.('eat');
+      // No screen/board flash per dot: it strobed constantly while moving. Keep particles + sound only.
+      emit('eat', player.x * CELL + CELL / 2, player.y * CELL + CELL / 2, { scale: 0.5, noLight: true });
       hooks.onScore(score);
       if (dotsLeft <= 0) {
         // clear stage — refill maze, bonus

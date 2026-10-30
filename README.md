@@ -43,7 +43,9 @@ On phones/tablets use the on-screen D-pad and the red **●** button (hold works
 | Ladder Climb | ←/→ walk · ↑/↓ climb at a ladder · Space (or ↑ away from a ladder) jump | D-pad · ● jump |
 | Neon Racer | ←/→ steer · ↑ or Space boost · ↓ brake | D-pad · ● boost |
 | Moon Drop | ←/→ rotate · ↑ or Space thrust (hold) | ◀ ▶ rotate · ▲ / ● thrust |
-| Tank Duel | Menu: ↑/↓ + Space, or 1 / 2. 1P: arrows/WASD drive · Space/Enter/F fire. 2P: left WASD + Space/F/Q fire, right arrows + Enter/Shift-right/. fire | D-pad drive (left tank) · ● fire / start |
+| Tank Duel | Menu: ↑/↓ + Space, or 1 / 2. 1P: arrows/WASD drive · Space/Enter/Q fire. 2P: left WASD + Space/Q fire, right arrows + Enter/Shift-right/. fire | D-pad drive (left tank) · ● fire / start |
+
+**Camera** — every cart has a **CAMERA** button (or **C** / gamepad **LB / L1**) that cycles **CLASSIC** (tilted board view) → **CHASE** (low and close behind your avatar, following its heading) → **FIRST PERSON** (eye level). The choice is saved per game. Carts without a natural "forward" get a low-angle variant instead: Block Drop (from the floor of the well), Brick Bash and Pixel Paddle (low behind your paddle); Moon Drop uses a low view from the landing zone and a cockpit cam with screen-up kept up. In Snake and Maze Munch, CHASE / FIRST PERSON use **relative steering** by default (◀ ▶ turn left/right from your heading; Maze Munch ▼ turns around) — switch to absolute in the game's (i) info. **F** / gamepad **RB** = fullscreen.
 
 **Gamepad** (Xbox / PlayStation, Gamepad API — just plug in and press a button): d-pad or left stick moves, **A / ✕** = fire / action, **B / ○** = secondary (rotate in Block Drop), **Start** = pause (restart after game over), **Y / △** = game info, **Select / Share** = back to the cabinet. In the menu the d-pad moves between carts and buttons, A starts, Y opens the cart's info, X opens the leaderboard. **Pixel Paddle** and **Tank Duel** support two controllers: controller 1 = left / green, controller 2 = right / red.
 
@@ -53,6 +55,7 @@ On phones/tablets use the on-screen D-pad and the red **●** button (hold works
 - **Daily challenge** — one game + one goal per day (deterministic from the Oslo date, so it is the same for everyone). Shown in the menu; completion is stored locally and pays bonus coins.
 - **Coins, achievements and shop** — every game pays coins (score-based; 2-player rounds pay a little). 20 achievements (+25 coins each). Spend coins on cabinet themes (Arctic, Neon, Chrome, Gold) and skins (Snake ×2, Frog Hop, Star Blaster, Tank Duel, Moon Drop). Everything is stored locally.
 - **Sound** — original chiptune loop in the menu and richer SFX (noise bursts, envelopes), all generated live with Web Audio — no audio files, no copyrighted music. The sound button mutes everything.
+- **Snake: Fantasy World** — the WORLD button in Snake switches between CLASSIC NEON and FANTASY: a stone-paved arena on a floating cliff with ruins, ivy-covered columns, distant snowy mountains, waterfalls with mist, warm sunset light, fake volumetric fog and god rays, a scaly snake and glossy glowing apples. Lazy-loaded (~24 kB JS, ~10 kB gzipped) only when selected; quality tiers (shadows, texture size, particle counts) follow the device.
 - **CRT mode** — 📺 toggle for heavier scanlines, slight screen curvature, vignette and glow. Saved in `localStorage`.
 
 ## Leaderboard API
@@ -101,6 +104,10 @@ Or: `npx vercel` from this folder after login.
 Vite + vanilla JavaScript · Canvas 2D · Web Audio API · Gamepad API · CSS CRT/scanlines · localStorage · Vercel Functions + Neon Postgres
 
 The nine newer carts share a tiny engine in `src/games/kit.js` (held keys + touch, pause/game-over overlays, high scores). The original three carts keep their own code. Meta features live in `src/progress.js` (coins, achievements, shop, daily challenge), `src/online.js` (leaderboard client), `src/gamepad.js` and `src/audio.js`.
+
+## Credits / assets
+
+No third-party art, models, textures or audio are used. Everything in the 3D view and the Snake Fantasy World (paving, rock, scale and normal-map textures, sky, clouds, mountains, waterfalls, mist, god rays, snake and apple models) is generated procedurally in code at runtime, and all sound is synthesised with Web Audio. Three.js (MIT) is the only rendering library.
 
 ## License
 

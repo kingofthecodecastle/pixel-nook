@@ -24,6 +24,7 @@ const LANES = [
 export function createFrogHop(canvas, hooks) {
   return makeGame(canvas, hooks, {
     id: 'froghop', W, H,
+    avatar: (g) => g.s.frog && { x: g.s.frog.x + C / 2, y: g.s.frog.row * C + C / 2, h: -Math.PI / 2 },
     init(g) {
       const s = g.s;
       s.level = 1;

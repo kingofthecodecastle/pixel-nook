@@ -10,6 +10,7 @@ import { AfterimagePass } from 'three/examples/jsm/postprocessing/AfterimagePass
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { getTier, onTier, makeWatchdog, pixelRatio } from './quality.js';
 import { onFx } from '../fx.js';
+import { makeRig, FOV } from './camrig.js';
 
 const MAX_BOX = 9000, MAX_BALL = 2500, MAX_GLASS = 1500, MAX_POLY_VERTS = 48000;
 const CELL = 4;
@@ -79,9 +80,12 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(30, W / H, 1, 6000);
   renderer.setClearColor(0x05040a, 1);
+  const NEON_FOG = new THREE.Fog(0x05040a, 1e5, 2e5);
+  scene.fog = NEON_FOG;
 
   // —— lights ——
-  scene.add(new THREE.HemisphereLight(0xcfe0ff, 0x1a1020, 1.1));
+  const hemi = new THREE.HemisphereLight(0xcfe0ff, 0x1a1020, 1.1);
+  scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xffffff, 1.7);
   sun.position.set(-W * 0.35, Math.max(W, H) * 1.3, H * 0.55);
   sun.target.position.set(0, 0, 0);
@@ -188,6 +192,8 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
       composer.addPass(new OutputPass());
     }
     resize(true);
+    world?.setTier?.(t);
+    if (world && bloom) { bloom.strength = 0.42; bloom.threshold = 0.86; bloom.radius = 0.55; }
   }
 
   let cw = 0, ch = 0;
@@ -214,7 +220,7 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
   const FIT_MARGIN = 0.92; // NDC extent used (leaves ~4% margin on each side for sway / shake)
   const fitPts = [];
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const y of [-8.5, 3, 14]) fitPts.push(new THREE.Vector3(sx * (W / 2 + B + 2), y, sz * (H / 2 + B + 2)));
-  const fitCam = new THREE.PerspectiveCamera(camera.fov, 1, 1, 1e6);
+  const fitCam = new THREE.PerspectiveCamera(30, 1, 1, 1e6);
   const fitV = new THREE.Vector3();
   let fitKey = '', fitD = 1, fitLookZ = 0;
   function extent(d, lookZ, tilt) {
@@ -230,10 +236,10 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
     return { x0, x1, y0, y1 };
   }
   function solveFit() {
-    const a = camera.aspect, tilt = cfg.tilt, key = a.toFixed(4) + ':' + camera.fov;
+    const a = camera.aspect, tilt = cfg.tilt, key = a.toFixed(4);
     if (key === fitKey) return;
     fitKey = key;
-    fitCam.fov = camera.fov; fitCam.aspect = a; fitCam.updateProjectionMatrix();
+    fitCam.aspect = a; fitCam.updateProjectionMatrix();
     const R = Math.hypot(W, H);
     let lookZ = 0, d = R * 3;
     for (let it = 0; it < 6; it++) {
@@ -418,8 +424,14 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
   }
 
   const pose = new THREE.Vector3(), from = new THREE.Vector3();
+  const tgtPos = new THREE.Vector3(), tgtLook = new THREE.Vector3(), tgtUp = new THREE.Vector3(0, 1, 0);
+  const camPos = new THREE.Vector3(), camLook = new THREE.Vector3(), camUp = new THREE.Vector3(0, 1, 0);
+  const tmpP = new THREE.Vector3(), tmpL = new THREE.Vector3(), tmpU = new THREE.Vector3();
+  const rig = makeRig(gameId, W, H);
+  let camMode = 'classic', avatarFn = null, fovNow = 30;
+  let world = null, worldName = 'neon', worldLoading = null;
   const ease = (t) => 1 - Math.pow(1 - t, 3);
-  let last = 0, frames = 0, fpsT = 0, fps = 0;
+  let last = 0, frames = 0, fpsT0 = 0, fps = 0;
   const watchdog = makeWatchdog();
   const offTier = onTier(() => setupTier());
 
@@ -427,29 +439,51 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
     const dt = last ? Math.min(0.05, (now - last) / 1000) : 0.016;
     last = now;
     watchdog(now);
-    frames++; fpsT += dt; if (fpsT >= 1) { fps = Math.round(frames / fpsT); frames = 0; fpsT = 0; }
+    frames++; if (!fpsT0) fpsT0 = now; else if (now - fpsT0 >= 1000) { fps = Math.round((frames * 1000) / (now - fpsT0)); frames = 0; fpsT0 = now; }
     resize(false);
-    if (cap.mode3d) build(cap.ops);
+    if (cap.mode3d && !world) build(cap.ops);
 
-    // camera: intro swoop / outro, then gentle idle sway + shake
+    // camera: intro swoop / outro, then a damped follow of the active rig (classic sway, chase, first person)
     basePose(pose);
+    tgtPos.set(pose.x + Math.sin(now / 2600) * W * 0.012, pose.y, pose.z);
+    tgtLook.set(0, 0, lookZ()); tgtUp.set(0, 1, 0);
+    let mode = camMode;
+    if (mode !== 'classic') {
+      let av = null;
+      try { av = avatarFn?.() || null; } catch { av = null; }
+      if (!rig.target(mode, av, dt, now, tmpP, tmpL, tmpU)) mode = 'classic';
+      else { tgtPos.copy(tmpP); tgtLook.copy(tmpL); tgtUp.copy(tmpU); }
+    }
+    const wantFov = FOV[mode] || 30;
     if (intro.active) {
       intro.t = Math.min(1, intro.t + dt / intro.dur);
       const k = intro.dir > 0 ? ease(intro.t) : 1 - ease(intro.t);
       from.set(pose.x * 0.2 + W * 0.25, pose.y * 2.2, pose.z * 0.2 - H * 0.6);
-      camera.position.lerpVectors(from, pose, k);
+      camPos.lerpVectors(from, tgtPos, k);
+      camLook.set(0, 0, lookZ() + (1 - k) * -H * 0.1).lerp(tgtLook, k);
+      camUp.copy(tgtUp);
+      fovNow = 30 + (wantFov - 30) * k;
       if (intro.t >= 1) { intro.active = false; intro.done?.(); intro.done = null; }
     } else {
-      const sway = Math.sin(now / 2600) * W * 0.012;
-      camera.position.set(pose.x + sway, pose.y, pose.z);
+      const kp = 1 - Math.exp(-dt * (mode === 'classic' ? 6 : 7));
+      camPos.lerp(tgtPos, kp); camLook.lerp(tgtLook, kp); camUp.lerp(tgtUp, kp).normalize();
+      fovNow += (wantFov - fovNow) * (1 - Math.exp(-dt * 4));
     }
+    if (Math.abs(camera.fov - fovNow) > 0.01) { camera.fov = fovNow; camera.updateProjectionMatrix(); }
+    camera.position.copy(camPos);
+    camera.up.copy(camUp);
     if (shake > 0.05) {
-      camera.position.x += (Math.random() - 0.5) * shake * 2;
-      camera.position.y += (Math.random() - 0.5) * shake;
-      camera.position.z += (Math.random() - 0.5) * shake * 2;
+      const sk = mode === 'classic' ? 1 : 0.3; // keep close cameras calm
+      camera.position.x += (Math.random() - 0.5) * shake * 2 * sk;
+      camera.position.y += (Math.random() - 0.5) * shake * sk;
+      camera.position.z += (Math.random() - 0.5) * shake * 2 * sk;
       shake *= Math.exp(-dt * 9);
     }
-    camera.lookAt(0, 0, lookZ() + (intro.active ? (1 - ease(intro.t)) * -H * 0.1 : 0));
+    camera.lookAt(camLook);
+    // close cameras get a soft distance fog so the floor fades into the dark instead of ending at a hard edge
+    const fogFar = mode === 'classic' ? 2e5 : Math.max(W, H) * 2.4;
+    if (scene.fog === NEON_FOG) { NEON_FOG.far += (fogFar - NEON_FOG.far) * (1 - Math.exp(-dt * 3)); NEON_FOG.near = NEON_FOG.far * 0.35; }
+    world?.update(dt, now, camera, mode);
 
     // particles
     let alive = 0;
@@ -472,7 +506,8 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
       r.scale.set(s, s, s);
       r.material.opacity = (1 - r.userData.t) * 0.9;
     }
-    flashLight.intensity = flashI;
+    flashLight.intensity = flashI * (camMode === 'classic' ? 1 : 0.18);
+    if (trails) trails.enabled = camMode === 'classic' && !world; // a moving camera would smear the whole frame
     flashI *= Math.exp(-dt * 7);
     rimMat.userData.glow.value = 1.1 + Math.sin(now / 400) * 0.25;
 
@@ -482,7 +517,37 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
   setupTier();
   basePose(pose);
   camera.position.copy(pose);
-  camera.lookAt(0, 0, lookZ());
+  camPos.copy(pose);
+  camLook.set(0, 0, lookZ());
+  camera.lookAt(camLook);
+
+  // —— optional themed world (Snake: FANTASY), lazy-loaded so the neon carts never download it ——
+  const neonParts = [board, rim, floor, grid, boxes, balls, discs, glass, polyMesh];
+  function setWorld(name) {
+    if (name === worldName && (world || name === 'neon')) return Promise.resolve(worldName);
+    worldName = name;
+    if (name !== 'fantasy' || gameId !== 'snake') {
+      world?.dispose(); world = null;
+      neonParts.forEach((o) => { o.visible = true; });
+      scene.fog = NEON_FOG; scene.background = null;
+      renderer.toneMapping = THREE.NoToneMapping; renderer.toneMappingExposure = 1;
+      sun.visible = true; hemi.visible = true;
+      if (bloom) { bloom.strength = getTier() === 'high' ? 0.6 : 0.5; bloom.threshold = 0.78; }
+      [solidMat, glassMat, polyMesh.material, boardMat, floor.material].forEach((m) => { m.needsUpdate = true; });
+      return Promise.resolve('neon');
+    }
+    const ticket = (worldLoading = import('./fantasy.js').then((m) => {
+      if (worldLoading !== ticket || worldName !== 'fantasy') return worldName;
+      world?.dispose();
+      world = m.createFantasy({ THREE, scene, renderer, W, H, tier: getTier(), getState: () => stateFn?.() });
+      neonParts.forEach((o) => { o.visible = false; });
+      sun.visible = false; hemi.visible = false;
+      if (bloom) { bloom.strength = 0.42; bloom.threshold = 0.86; bloom.radius = 0.55; }
+      return 'fantasy';
+    }));
+    return ticket;
+  }
+  let stateFn = null;
 
   return {
     canvas,
@@ -496,9 +561,16 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
     outro() {
       return new Promise((res) => { intro.t = 0; intro.dur = 0.38; intro.dir = -1; intro.active = true; intro.done = res; });
     },
-    stats: () => ({ live: (() => { let m = 0; camera.updateMatrixWorld(true); for (const q of fitPts) { fitV.copy(q).project(camera); m = Math.max(m, Math.abs(fitV.x), Math.abs(fitV.y)); } return +m.toFixed(3); })(), fit: (() => { const e = extent(fitD, fitLookZ, cfg.tilt); return e && [e.x0, e.x1, e.y0, e.y1].map((v) => +v.toFixed(3)); })(), prims: (boxes.count || 0) + (balls.count || 0) + (discs.count || 0) + (glass.count || 0) + Math.floor(pv / 3), tier: getTier(), fps, particles: points.visible }),
+    setCamMode(m) { camMode = m; },
+    getCamMode: () => camMode,
+    setAvatar(fn) { avatarFn = fn; },
+    setState(fn) { stateFn = fn; },
+    setWorld,
+    getWorld: () => (world ? 'fantasy' : 'neon'),
+    stats: () => ({ live: (() => { let m = 0; camera.updateMatrixWorld(true); for (const q of fitPts) { fitV.copy(q).project(camera); m = Math.max(m, Math.abs(fitV.x), Math.abs(fitV.y)); } return +m.toFixed(3); })(), fit: (() => { const e = extent(fitD, fitLookZ, cfg.tilt); return e && [e.x0, e.x1, e.y0, e.y1].map((v) => +v.toFixed(3)); })(), world: world ? 'fantasy' : 'neon', cam: camMode, fov: Math.round(camera.fov), prims: (boxes.count || 0) + (balls.count || 0) + (discs.count || 0) + (glass.count || 0) + Math.floor(pv / 3), tier: getTier(), fps, particles: points.visible }),
     dispose() {
       offFx(); offTier();
+      worldLoading = null; world?.dispose(); world = null;
       composer?.dispose?.();
       scene.traverse((o) => { o.geometry?.dispose?.(); if (o.material) [].concat(o.material).forEach((m) => m.dispose()); });
       renderer.dispose();

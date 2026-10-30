@@ -20,6 +20,7 @@ const LAYOUTS = [
 export function createBrickBash(canvas, hooks) {
   return makeGame(canvas, hooks, {
     id: 'brickbash', W, H,
+    avatar: (g) => g.s.paddle && { x: g.s.paddle.x + g.s.paddle.w / 2, y: g.s.paddle.y + g.s.paddle.h / 2, h: -Math.PI / 2 },
     init(g) {
       const s = g.s;
       s.level = 0;

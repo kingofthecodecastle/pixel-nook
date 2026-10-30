@@ -50,7 +50,7 @@ export function makeGame(canvas, hooks, spec) {
 
   const api = {
     ctx, W: spec.W, H: spec.H, sfx, s: {},
-    score: 0, lives: 0, over: false, paused: false, overMsg: '', noSave: false, t: 0,
+    score: 0, lives: 0, over: false, paused: false, overMsg: '', noSave: false, t: 0, cam: 'classic',
     held(name) { return !!(keys[name] || pads[name]); },
     rawHeld(code) { return !!raw[code]; },
     padHeld(name) { return !!pads[name]; },
@@ -191,6 +191,8 @@ export function makeGame(canvas, hooks, spec) {
   reset();
   return {
     update, onKey, onKeyUp, setDir, release, action, actionUp, togglePause, restart,
+    avatar: spec.avatar ? () => spec.avatar(api) : undefined,
+    setCam(mode) { api.cam = mode; },
     destroy() { clearTimeout(statusTimer); window.removeEventListener('blur', onBlur); },
     getScore: () => api.score,
     _debug: () => api,

@@ -737,3 +737,25 @@ html, body {
   :root.is-fs #app:has(.crt-frame.play) { height: 100vh; height: 100dvh; }
   :root.is-fs .crt-frame.play { padding: 6px 12px 8px; }
 }
+
+/* —— camera + world buttons —— */
+.btn.chunky.big-btn.cam-btn { color: #ffc6ff; }
+.btn.chunky.big-btn.cam-btn[data-mode="chase"], .btn.chunky.big-btn.cam-btn[data-mode="fp"] { color: #fdffb6; }
+.cam-btn .cam-k { font-style: normal; opacity: 0.75; }
+.btn.chunky.small.world-btn { display: inline-flex; align-items: center; gap: 6px; color: #ffd8a8; }
+.world-btn .ico { width: 14px; height: 14px; }
+.world-btn.loading { opacity: 0.6; }
+.play-actions:has(.world-btn) { flex-wrap: wrap; }
+.play-actions .world-btn { flex-basis: 100%; justify-content: center; }
+.cam-now { margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+@media (max-width: 620px) { .cam-btn .cam-k { display: none; } }
+@media (min-width: 900px) and (min-height: 480px) and (max-width: 1250px) { .cam-btn .cam-k { display: none; } }
+/* narrow phones: four big buttons share one row, so INFO / SOUND go icon-only (with a larger icon) */
+@media (max-width: 480px) {
+  .play-bar .bar-right { gap: 6px; flex-wrap: wrap; }
+  .bar-right .info-btn span, .bar-right .mute-btn span, .bar-right .fs-btn span { display: none; }
+  .bar-right .info-btn .ico, .bar-right .mute-btn .ico, .bar-right .fs-btn .ico { width: 22px; height: 22px; }
+  .bar-right .info-btn, .bar-right .mute-btn { padding: 7px 12px; flex: none; }
+  .bar-right .fs-btn { padding: 7px 12px; flex: none; }
+  .bar-right .cam-btn { flex: none; white-space: nowrap; }
+}

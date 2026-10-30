@@ -23,6 +23,7 @@ function drawCar(ctx, x, y, w, h, body, glow) {
 export function createNeonRacer(canvas, hooks) {
   return makeGame(canvas, hooks, {
     id: 'neonracer', W, H,
+    avatar: (g) => g.s.car && { x: g.s.car.x + g.s.car.w / 2, y: g.s.car.y + g.s.car.h / 2, h: -Math.PI / 2 },
     init(g) {
       const s = g.s;
       s.car = { x: RL + LW * 1.5 - 13, y: H - 74, w: 26, h: 44 };

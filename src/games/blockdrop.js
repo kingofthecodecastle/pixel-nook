@@ -322,6 +322,11 @@ export function createBlockDrop(canvas, hooks) {
     setDir,
     action: rotateCW,
     turnLeft,
+    /** Camera anchor: under the falling piece at the floor of the well, looking up the well. */
+    avatar() {
+      const w = piece?.shape?.[0]?.length || 3;
+      return { x: ((piece?.x ?? 3) + w / 2) * CELL, y: ROWS * CELL - CELL * 0.5, h: -Math.PI / 2, fx: COLS * CELL / 2 };
+    },
     hardDrop,
     togglePause,
     restart,

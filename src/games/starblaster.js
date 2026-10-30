@@ -18,6 +18,7 @@ const ROWS_DEF = [
 export function createStarBlaster(canvas, hooks) {
   return makeGame(canvas, hooks, {
     id: 'starblaster', W, H,
+    avatar: (g) => g.s.ship && { x: g.s.ship.x + g.s.ship.w / 2, y: g.s.ship.y + g.s.ship.h / 2, h: -Math.PI / 2 },
     init(g) {
       const s = g.s;
       s.wave = 0;

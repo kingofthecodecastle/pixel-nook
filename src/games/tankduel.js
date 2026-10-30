@@ -48,6 +48,7 @@ const circleHits = (x, y, rad, R) => {
 export function createTankDuel(canvas, hooks) {
   return makeGame(canvas, hooks, {
     id: 'tankduel', W, H,
+    avatar: (g) => { const t = g.s.mode && g.s.tanks?.[0]; return t && Number.isFinite(t.x) && !t.dead ? { x: t.x, y: t.y, h: t.a } : null; },
     extraKeys: ['Digit1', 'Digit2', 'Numpad1', 'Numpad2', 'KeyQ', 'Slash', 'Period', 'ShiftRight'],
     init(g) {
       const s = g.s;

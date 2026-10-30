@@ -6,6 +6,7 @@ const W = 320, H = 256, PH = 40, PW = 6, WIN = 7;
 export function createPixelPaddle(canvas, hooks) {
   return makeGame(canvas, hooks, {
     id: 'pixelpaddle', W, H,
+    avatar: (g) => g.s.mode && g.s.left && { x: g.s.left.x + PW / 2, y: g.s.left.y + PH / 2, h: 0 },
     extraKeys: ['Digit1', 'Digit2', 'Numpad1', 'Numpad2'],
     init(g) {
       const s = g.s;
@@ -31,8 +32,10 @@ export function createPixelPaddle(canvas, hooks) {
       const pSpeed = 230;
       if (s.mode === 1) {
         let d = 0;
-        if (g.held('up')) d -= 1;
-        if (g.held('down')) d += 1;
+        // Chase / first-person cameras look down the table from behind your paddle: left/right also slide it.
+        const side = g.cam && g.cam !== 'classic';
+        if (g.held('up') || (side && g.held('left'))) d -= 1;
+        if (g.held('down') || (side && g.held('right'))) d += 1;
         L.y += d * pSpeed * dt;
         // CPU: tracks the ball with a capped speed and a small aim error
         const target = b.vx > 0 ? b.y - PH / 2 + s.cpuErr : H / 2 - PH / 2;

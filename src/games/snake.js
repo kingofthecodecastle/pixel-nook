@@ -54,6 +54,18 @@ export function createSnake(canvas, hooks) {
     const d = nextDir;
     setDir(d.y, -d.x);
   }
+  function turnRight() {
+    if (!alive || paused || over) return;
+    const d = nextDir;
+    setDir(-d.y, d.x);
+  }
+  // Relative steering (chase / first-person camera): left/right turn from the current heading, up/down do nothing.
+  let relative = false;
+  function steer(dx, dy) {
+    if (!relative) return setDir(dx, dy);
+    if (dx < 0) turnLeft();
+    else if (dx > 0) turnRight();
+  }
 
   function step() {
     dir = nextDir;
@@ -173,10 +185,10 @@ export function createSnake(canvas, hooks) {
 
   function onKey(e) {
     const k = e.key.toLowerCase();
-    if (k === 'arrowup' || k === 'w') { e.preventDefault(); setDir(0, -1); }
-    else if (k === 'arrowdown' || k === 's') { e.preventDefault(); setDir(0, 1); }
-    else if (k === 'arrowleft' || k === 'a') { e.preventDefault(); setDir(-1, 0); }
-    else if (k === 'arrowright' || k === 'd') { e.preventDefault(); setDir(1, 0); }
+    if (k === 'arrowup' || k === 'w') { e.preventDefault(); steer(0, -1); }
+    else if (k === 'arrowdown' || k === 's') { e.preventDefault(); steer(0, 1); }
+    else if (k === 'arrowleft' || k === 'a') { e.preventDefault(); if (!e.repeat || !relative) steer(-1, 0); }
+    else if (k === 'arrowright' || k === 'd') { e.preventDefault(); if (!e.repeat || !relative) steer(1, 0); }
     else if (k === 'p' || k === 'escape') { e.preventDefault(); togglePause(); }
     else if (k === 'r' && over) { e.preventDefault(); restart(); }
   }
@@ -198,8 +210,20 @@ export function createSnake(canvas, hooks) {
   return {
     update,
     onKey,
-    setDir,
+    setDir: steer,
     turnLeft,
+    turnRight,
+    setRelative(on) { relative = !!on; },
+    /** Camera target: head centre, nudged along the heading by the tick progress so the camera glides. */
+    avatar() {
+      const h = snake[0], f = alive && !paused ? Math.min(1, acc / tickMs) : 0;
+      const d = alive ? nextDir : dir;
+      return { x: (h.x + 0.5 + dir.x * f * 0.9) * CELL, y: (h.y + 0.5 + dir.y * f * 0.9) * CELL, h: Math.atan2(d.y, d.x) };
+    },
+    /** Snapshot for the Fantasy world renderer. */
+    state() {
+      return { snake, dir, food, alive, over, paused, frac: alive && !paused ? Math.min(1, acc / tickMs) : 0, COLS, ROWS, CELL, score };
+    },
     togglePause,
     restart,
     destroy() {},

@@ -7,6 +7,7 @@ const W = 320, H = 400;
 export function createMoonDrop(canvas, hooks) {
   return makeGame(canvas, hooks, {
     id: 'moondrop', W, H,
+    avatar: (g) => g.s.ship && { x: g.s.ship.x, y: g.s.ship.y, h: -Math.PI / 2, lander: true },
     init(g) {
       const s = g.s;
       s.level = 1;

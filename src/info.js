@@ -97,6 +97,22 @@ export const INFO = {
 };
 
 // Shown under every game's gamepad section
-export const PAD_COMMON = ['Y / △: this info · Select / Share: back to the cabinet', 'RB / R1: fullscreen on/off'];
+export const PAD_COMMON = ['Y / △: this info · Select / Share: back to the cabinet', 'RB / R1: fullscreen on/off', 'LB / L1: switch camera'];
 // Shown under every game's keyboard section
-export const KEYS_COMMON = ['F: fullscreen on/off'];
+export const KEYS_COMMON = ['F: fullscreen on/off', 'C: switch camera (CLASSIC → CHASE → FIRST PERSON)'];
+
+// What CHASE and FIRST PERSON mean in each cart (the CAMERA button / C key / LB cycles them; saved per game)
+export const CAM_NOTES = {
+  snake: ['CHASE: low and close behind the head, turning with you.', 'FIRST PERSON: eye level from the head.', 'Steering (below): RELATIVE = ◀ ▶ turn left/right from where the head points (▲ ▼ do nothing); ABSOLUTE = arrows are compass directions like the classic view.'],
+  mazemunch: ['CHASE: behind Munch, turning down each corridor.', 'FIRST PERSON: eye level in the maze.', 'Steering (below): RELATIVE = ◀ ▶ take the next left/right turn, ▼ turns around; ABSOLUTE = arrows are compass directions.'],
+  blockdrop: ['No "forward" here, so CHASE is a low, dramatic view from the floor of the well, looking up at the falling piece.', 'FIRST PERSON: right at floor level of the well. Controls are unchanged.'],
+  starblaster: ['CHASE: behind and above your ship, looking up the screen at the swarm.', 'FIRST PERSON: cockpit view. Controls are unchanged.'],
+  brickbash: ['No real heading, so CHASE sits low behind the paddle and looks across the wall of bricks.', 'FIRST PERSON: paddle-level view. Controls are unchanged.'],
+  froghop: ['CHASE: behind the frog, looking across the road and river.', 'FIRST PERSON: frog eye level. Controls are unchanged.'],
+  asteroiddrift: ['CHASE: behind the ship, turning as it rotates.', 'FIRST PERSON: cockpit view. Rotate/thrust controls already work relative to the ship.'],
+  pixelpaddle: ['No real heading, so CHASE sits low behind your paddle and looks down the table.', 'FIRST PERSON: paddle-level view. In CHASE / FIRST PERSON, ◀ ▶ also slide the paddle (as you see it).'],
+  ladderclimb: ['CHASE: behind the climber, looking up the girders.', 'FIRST PERSON: eye level. Controls are unchanged.'],
+  neonracer: ['CHASE: behind the car, looking down the road.', 'FIRST PERSON: driver\'s seat. Controls are unchanged.'],
+  moondrop: ['CHASE: a low-angle view from the landing zone, looking up at the lander.', 'FIRST PERSON: a cockpit cam just above the lander (screen-up stays up, so controls are unchanged).'],
+  tankduel: ['CHASE: behind the green tank, turning with its turret.', 'FIRST PERSON: from the hatch. Drive controls already work relative to the tank.', 'In 2-player mode the camera follows the green tank.'],
+};

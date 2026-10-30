@@ -18,6 +18,7 @@ const HERO_PAL = { 1: '#ff4d6d', 2: '#f5d0a9', 3: '#111', 4: '#74b9ff', 5: '#3d2
 export function createLadderClimb(canvas, hooks) {
   return makeGame(canvas, hooks, {
     id: 'ladderclimb', W, H,
+    avatar: (g) => g.s.p && { x: g.s.p.x + g.s.p.w / 2, y: g.s.p.y + g.s.p.h / 2, h: -Math.PI / 2 },
     init(g) {
       g.s.level = 1;
       g.setLives(3);

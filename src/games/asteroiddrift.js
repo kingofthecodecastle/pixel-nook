@@ -16,6 +16,7 @@ const dist2 = (a, b) => {
 export function createAsteroidDrift(canvas, hooks) {
   return makeGame(canvas, hooks, {
     id: 'asteroiddrift', W, H,
+    avatar: (g) => g.s.ship && Number.isFinite(g.s.ship.x) && { x: g.s.ship.x, y: g.s.ship.y, h: g.s.ship.a },
     init(g) {
       const s = g.s;
       s.wave = 0;

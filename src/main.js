@@ -3,7 +3,7 @@ import { sfx, isMuted, toggleMute, startMusic, stopMusic, resumeAudio, setRoom }
 import { captureCanvas } from './three/capture.js';
 import { setFxWidth } from './fx.js';
 import { getHighScores, nameLatest } from './storage.js';
-import { INFO, PAD_COMMON, KEYS_COMMON } from './info.js';
+import { INFO, PAD_COMMON, KEYS_COMMON, CAM_NOTES } from './info.js';
 import {
   ACHIEVEMENTS, THEMES, SKINS, getProgress, onProgress, markPlayed, finishGame, checkDaily, dailyChallenge,
   buy, setTheme, equipSkin, applyTheme, gameName, unlock,
@@ -184,10 +184,53 @@ const ICON = {
   off: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" fill="currentColor"/><path d="M16 9l6 6M22 9l-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
   info: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.4" fill="none"/><path d="M12 10.5v7" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/><circle cx="12" cy="6.8" r="1.7" fill="currentColor"/></svg>',
   fs: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9V3h6M15 3h6v6M21 15v6h-6M9 21H3v-6" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="square"/></svg>',
+  cam: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h4l2-3h6l2 3h4v12H3z" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linejoin="round"/><circle cx="12" cy="13.5" r="3.6" stroke="currentColor" stroke-width="2.2" fill="none"/></svg>',
+  world: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 19l6-9 4 5 3-4 7 8z" fill="currentColor"/><circle cx="17" cy="6" r="2.6" fill="currentColor"/></svg>',
   fsx: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v6H3M21 9h-6V3M15 21v-6h6M3 15h6v6" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="square"/></svg>',
 };
 const soundHtml = () => (isMuted() ? ICON.off + '<span>SOUND OFF</span>' : ICON.on + '<span>SOUND ON</span>');
 const fsHtml = () => (isFs() ? ICON.fsx + '<span>EXIT FULL</span>' : ICON.fs + '<span>FULLSCREEN</span>');
+// —— camera modes (per game) + steering preference + Snake world ——
+const CAM_MODES = ['classic', 'chase', 'fp'];
+const STEER_GAMES = new Set(['snake', 'mazemunch']);
+const CAM_LABEL = { classic: 'CLASSIC', chase: 'CHASE', fp: 'FIRST PERSON' };
+const lsGet = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+const camOf = (id) => { const m = lsGet('pixelnook_cam_' + id, 'classic'); return CAM_MODES.includes(m) ? m : 'classic'; };
+const steerPref = () => (lsGet('pixelnook_steer', 'relative') === 'absolute' ? 'absolute' : 'relative');
+const worldOf = (id) => (id === 'snake' && lsGet('pixelnook_world_snake', 'neon') === 'fantasy' ? 'fantasy' : 'neon');
+const camHtml = (m) => `${ICON.cam}<span><i class="cam-k">CAMERA · </i>${CAM_LABEL[m]}</span>`;
+const worldHtml = (w) => `${ICON.world}<span>WORLD: ${w === 'fantasy' ? 'FANTASY' : 'CLASSIC NEON'}</span>`;
+function applyCam() {
+  if (!currentId) return;
+  const m = camOf(currentId);
+  view?.setCamMode?.(m);
+  currentGame?.setCam?.(m);
+  currentGame?.setRelative?.(m !== 'classic' && steerPref() === 'relative');
+  const b = app.querySelector('#camBtn');
+  if (b) { b.innerHTML = camHtml(m); b.title = `Camera: ${CAM_LABEL[m].toLowerCase()} (C or LB to switch)`; b.dataset.mode = m; }
+}
+function cycleCam() {
+  if (!currentId || !view) return;
+  const m = camOf(currentId);
+  const next = CAM_MODES[(CAM_MODES.indexOf(m) + 1) % CAM_MODES.length];
+  lsSet('pixelnook_cam_' + currentId, next);
+  sfx.click();
+  applyCam();
+  toast('Camera: ' + CAM_LABEL[next]);
+}
+function setWorldUi(w) { const b = app.querySelector('#worldBtn'); if (b) { b.innerHTML = worldHtml(w); b.dataset.world = w; } }
+async function toggleWorld() {
+  if (currentId !== 'snake' || !view?.setWorld) return;
+  const next = worldOf('snake') === 'fantasy' ? 'neon' : 'fantasy';
+  lsSet('pixelnook_world_snake', next);
+  sfx.click();
+  setWorldUi(next);
+  const b = app.querySelector('#worldBtn'); if (b && next === 'fantasy') b.classList.add('loading');
+  try { await view.setWorld(next); } catch (e) { console.warn('world failed', e); }
+  b?.classList.remove('loading');
+}
+
 function refreshButtons() {
   app.querySelectorAll('.mute-btn').forEach((b) => { b.innerHTML = soundHtml(); b.setAttribute('aria-pressed', String(!isMuted())); b.title = isMuted() ? 'Sound is off: click to turn on' : 'Sound is on: click to mute'; });
   app.querySelectorAll('.fs-btn').forEach((b) => { b.innerHTML = fsHtml(); b.setAttribute('aria-pressed', String(isFs())); b.title = isFs() ? 'Exit fullscreen (F / Esc)' : 'Fullscreen (F)'; });
@@ -228,6 +271,7 @@ window.addEventListener('keydown', (e) => {
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
   if (document.querySelector('.ini-panel')) return; // typing initials
   if (e.code === 'KeyF' && !e.repeat) { e.preventDefault(); e.stopImmediatePropagation(); toggleFullscreen(); }
+  else if (e.code === 'KeyC' && !e.repeat && currentGame && !modalEl) { e.preventDefault(); e.stopImmediatePropagation(); cycleCam(); }
   else if (e.code === 'Escape' && rootEl.classList.contains('pseudo-fs') && !modalEl) { setPseudoFs(false); }
 }, { capture: true });
 
@@ -350,7 +394,7 @@ function renderHome() {
           <button type="button" class="btn chunky small${isCrt() ? ' on' : ''}" id="crtBtn" aria-pressed="${isCrt()}">📺 CRT ${isCrt() ? 'ON' : 'OFF'}</button>
           <span class="coins" title="Coins">🪙 <span id="coinCount">${P.coins}</span></span>
         </div>
-        <p class="hint">Arrows / WASD · Space fire/jump · P pause · R restart · F fullscreen · 🎮 gamepad <span id="netState"></span></p>
+        <p class="hint">Arrows / WASD · Space fire/jump · P pause · R restart · F fullscreen · C camera · 🎮 gamepad <span id="netState"></span></p>
       </footer>
     </div>
   `;
@@ -410,6 +454,7 @@ function startGame(id) {
         <div class="bar-right">
           <button type="button" class="btn chunky big-btn info-btn" id="infoBtn" aria-label="Game info" title="How to play (Y on gamepad)">${ICON.info}<span>INFO</span></button>
           <button type="button" class="btn chunky big-btn mute-btn" id="muteBtn">${soundHtml()}</button>
+          <button type="button" class="btn chunky big-btn cam-btn" id="camBtn">${camHtml(camOf(id))}</button>
           <button type="button" class="btn chunky big-btn fs-btn" id="fsBtn">${fsHtml()}</button>
         </div>
       </header>
@@ -424,6 +469,7 @@ function startGame(id) {
       <div class="play-actions">
         <button type="button" class="btn chunky small" id="pauseBtn">PAUSE</button>
         <button type="button" class="btn chunky small" id="restartBtn">RESTART</button>
+        ${id === 'snake' ? `<button type="button" class="btn chunky small world-btn" id="worldBtn" title="Switch world: classic neon or the fantasy cliff">${worldHtml(worldOf(id))}</button>` : ''}
       </div>
       <div class="touch-pad" aria-label="Touch controls">
         <div class="dpad">
@@ -520,6 +566,9 @@ function startGame(id) {
   try { view = GV ? GV.createGameView(screenEl, cap, id, meta.accent) : null; } catch (e) { console.warn('3D view failed, using 2D', e); view = null; }
   cap.mode3d = !!view;
   if (view) {
+    view.setAvatar?.(() => currentGame?.avatar?.());
+    view.setState?.(() => currentGame?.state?.());
+    if (worldOf(id) === 'fantasy') view.setWorld?.('fantasy').catch?.((e) => console.warn('world failed', e));
     screenEl.classList.add('is3d');
     view.canvas.addEventListener('webglcontextlost', (e) => {
       e.preventDefault();
@@ -548,6 +597,10 @@ function startGame(id) {
   });
   app.querySelector('#infoBtn').addEventListener('click', (e) => { e.currentTarget.blur(); sfx.click(); openInfo(id); });
   app.querySelector('#fsBtn').addEventListener('click', (e) => { e.currentTarget.blur(); toggleFullscreen(); });
+  app.querySelector('#camBtn').addEventListener('click', (e) => { e.currentTarget.blur(); cycleCam(); });
+  app.querySelector('#worldBtn')?.addEventListener('click', (e) => { e.currentTarget.blur(); toggleWorld(); });
+  if (!view) { app.querySelector('#camBtn').hidden = true; app.querySelector('#worldBtn')?.setAttribute('hidden', ''); }
+  applyCam();
   app.querySelector('#pauseBtn').addEventListener('click', () => currentGame?.togglePause());
   app.querySelector('#restartBtn').addEventListener('click', () => { currentGame?.restart(); showBoard(); });
 
@@ -678,9 +731,17 @@ function openInfo(id) {
         <h3>TOUCH</h3>${list(info.touch)}
         <h3>GAMEPAD</h3>${list([...(info.pad || []), ...PAD_COMMON])}
         <h3>RULES &amp; HAZARDS</h3>${list(info.rules)}
+        <h3>CAMERA (C / LB)</h3>${list(CAM_NOTES[id] || [])}
+        <p class="cam-now">Now: <b id="camNow">${CAM_LABEL[camOf(id)]}</b>${STEER_GAMES.has(id) ? ` · <button type="button" class="btn chunky small" id="steerBtn">STEERING: ${steerPref().toUpperCase()}</button>` : ''}</p>
       </div>
       <p class="info-foot">${currentGame ? (willPause || lastStatus === 'Paused' ? 'Game paused · ' : '') : ''}X / Esc / tap outside to close</p>`,
   { pause: true, accent: meta.accent, label: 'Game info: ' + meta.title });
+  modalEl?.querySelector('#steerBtn')?.addEventListener('click', (e) => {
+    lsSet('pixelnook_steer', steerPref() === 'relative' ? 'absolute' : 'relative');
+    e.currentTarget.textContent = 'STEERING: ' + steerPref().toUpperCase();
+    sfx.click();
+    applyCam();
+  });
 }
 
 // —— Leaderboard overlay ——
@@ -883,6 +944,7 @@ const fakeKey = (code, key, repeat = false) => ({ code, key, repeat, preventDefa
 
 function onPad({ pad, btn, down, repeat }) {
   if (btn === 'rb' && down && !repeat && !modalEl) { toggleFullscreen(); return; }
+  if (btn === 'lb' && down && !repeat && !modalEl && currentGame) { cycleCam(); return; }
   if (modalEl) {
     if (!down) return;
     if (modalCfg?.onPad) return modalCfg.onPad(btn, pad);

@@ -208,16 +208,56 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
     pMat.uniforms.uScale.value = h * pixelRatio() * 1.6;
   }
 
-  // camera pose that fits the board for the cart's tilt
-  const fov = THREE.MathUtils.degToRad(camera.fov);
+  // camera pose that fits the whole board (incl. near edge + neon bezel) inside the canvas.
+  // Solved from the board's corner points and the real camera frustum for the current aspect:
+  // binary search on distance, with the look point re-centred so the tilted trapezoid sits mid-screen.
+  const FIT_MARGIN = 0.92; // NDC extent used (leaves ~4% margin on each side for sway / shake)
+  const fitPts = [];
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const y of [-8.5, 3, 14]) fitPts.push(new THREE.Vector3(sx * (W / 2 + B + 2), y, sz * (H / 2 + B + 2)));
+  const fitCam = new THREE.PerspectiveCamera(camera.fov, 1, 1, 1e6);
+  const fitV = new THREE.Vector3();
+  let fitKey = '', fitD = 1, fitLookZ = 0;
+  function extent(d, lookZ, tilt) {
+    fitCam.position.set(0, d * Math.cos(tilt), d * Math.sin(tilt) + lookZ);
+    fitCam.lookAt(0, 0, lookZ);
+    fitCam.updateMatrixWorld(true);
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    for (const p of fitPts) {
+      fitV.copy(p).project(fitCam);
+      if (fitV.z > 1) return null; // behind the camera
+      x0 = Math.min(x0, fitV.x); x1 = Math.max(x1, fitV.x); y0 = Math.min(y0, fitV.y); y1 = Math.max(y1, fitV.y);
+    }
+    return { x0, x1, y0, y1 };
+  }
+  function solveFit() {
+    const a = camera.aspect, tilt = cfg.tilt, key = a.toFixed(4) + ':' + camera.fov;
+    if (key === fitKey) return;
+    fitKey = key;
+    fitCam.fov = camera.fov; fitCam.aspect = a; fitCam.updateProjectionMatrix();
+    const R = Math.hypot(W, H);
+    let lookZ = 0, d = R * 3;
+    for (let it = 0; it < 6; it++) {
+      let lo = R * 0.3, hi = R * 40;
+      for (let i = 0; i < 40; i++) {
+        const m = (lo + hi) / 2, e = extent(m, lookZ, tilt);
+        if (!e || Math.max(-e.x0, e.x1) > FIT_MARGIN || Math.max(-e.y0, e.y1) > FIT_MARGIN) lo = m; else hi = m;
+      }
+      d = hi;
+      // re-centre vertically: move the look point toward the side that has spare room
+      const e = extent(d, lookZ, tilt);
+      const off = (e.y1 + e.y0) / 2; // >0: content sits high -> look further away (−z)
+      if (Math.abs(off) < 0.004) break;
+      lookZ -= off * (H / 2) * 0.9;
+    }
+    fitD = d; fitLookZ = lookZ;
+  }
   function basePose(out) {
+    solveFit();
     const tilt = cfg.tilt;
-    const a = camera.aspect;
-    const needH = (H / 2) * 1.02 + 6, needW = (W / 2) * 1.02 + 6;
-    const d = Math.max(needH / Math.tan(fov / 2), needW / (Math.tan(fov / 2) * a)) * (1 + tilt * 0.16);
-    out.set(0, d * Math.cos(tilt), d * Math.sin(tilt));
+    out.set(0, fitD * Math.cos(tilt), fitD * Math.sin(tilt) + fitLookZ);
     return out;
   }
+  const lookZ = () => (solveFit(), fitLookZ);
 
   // —— effects state ——
   let shake = 0, flashI = 0;
@@ -409,7 +449,7 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
       camera.position.z += (Math.random() - 0.5) * shake * 2;
       shake *= Math.exp(-dt * 9);
     }
-    camera.lookAt(0, 0, (intro.active ? (1 - ease(intro.t)) * -H * 0.1 : 0));
+    camera.lookAt(0, 0, lookZ() + (intro.active ? (1 - ease(intro.t)) * -H * 0.1 : 0));
 
     // particles
     let alive = 0;
@@ -442,7 +482,7 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
   setupTier();
   basePose(pose);
   camera.position.copy(pose);
-  camera.lookAt(0, 0, 0);
+  camera.lookAt(0, 0, lookZ());
 
   return {
     canvas,
@@ -456,7 +496,7 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
     outro() {
       return new Promise((res) => { intro.t = 0; intro.dur = 0.38; intro.dir = -1; intro.active = true; intro.done = res; });
     },
-    stats: () => ({ prims: (boxes.count || 0) + (balls.count || 0) + (discs.count || 0) + (glass.count || 0) + Math.floor(pv / 3), tier: getTier(), fps, particles: points.visible }),
+    stats: () => ({ live: (() => { let m = 0; camera.updateMatrixWorld(true); for (const q of fitPts) { fitV.copy(q).project(camera); m = Math.max(m, Math.abs(fitV.x), Math.abs(fitV.y)); } return +m.toFixed(3); })(), fit: (() => { const e = extent(fitD, fitLookZ, cfg.tilt); return e && [e.x0, e.x1, e.y0, e.y1].map((v) => +v.toFixed(3)); })(), prims: (boxes.count || 0) + (balls.count || 0) + (discs.count || 0) + (glass.count || 0) + Math.floor(pv / 3), tier: getTier(), fps, particles: points.visible }),
     dispose() {
       offFx(); offTier();
       composer?.dispose?.();

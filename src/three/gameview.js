@@ -359,9 +359,12 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
         const big = w * h >= area * 0.18;
         const mn = Math.min(w, h), mx = Math.max(w, h);
         let hgt = big ? 0.8 : mn < 3 && mx > 24 ? 1.6 : Math.min(16, Math.max(1.4, mn * 0.85)) * depth;
-        const base = Math.min(60, sample(x, y, x + w, y + h));
+        // sample/raise only the rect's interior so side-by-side tiles (Block Drop cells, bricks) don't
+        // stack onto their neighbours through the 4px height map and end up at uneven heights
+        const ins = Math.min(2.5, mn * 0.2);
+        const base = Math.min(60, sample(x + ins, y + ins, x + w - ins, y + h - ins));
         pushBox(x + w / 2, base, y + h / 2, w, hgt, h, op.c, op.a);
-        raise(x, y, x + w, y + h, base + hgt);
+        raise(x + ins, y + ins, x + w - ins, y + h - ins, base + hgt);
       } else if (op.t === 'circle') {
         const { x, y, r } = op;
         if (!(r > 0.2) || !Number.isFinite(x + y + r)) return;

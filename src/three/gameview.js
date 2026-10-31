@@ -404,7 +404,9 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
           polyTri(X(p), base, Z(p), X(n), base, Z(n), X(n), top, Z(n), nx, 0, nz);
           polyTri(X(p), base, Z(p), X(n), top, Z(n), X(p), top, Z(p), nx, 0, nz);
         }
-        raise(minx + qx, miny + qy, maxx - qx, maxy - qy, top);
+        // big shapes (terrain, floors) lift everything drawn on them; small sprites only their middle
+        if (ar > area * 0.05) raise(minx, miny, maxx, maxy, top);
+        else raise(minx + qx, miny + qy, maxx - qx, maxy - qy, top);
       } else if (op.t === 'line') {
         const pts = op.pts, n = op.closed ? pts.length : pts.length - 1;
         const th = Math.max(1.2, op.lw || 1);

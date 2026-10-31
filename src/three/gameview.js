@@ -11,6 +11,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { getTier, onTier, makeWatchdog, pixelRatio } from './quality.js';
 import { onFx } from '../fx.js';
 import { makeRig, FOV } from './camrig.js';
+import { createArcade } from './arcade.js';
 
 const MAX_BOX = 9000, MAX_BALL = 2500, MAX_GLASS = 1500, MAX_POLY_VERTS = 48000;
 const CELL = 4;
@@ -64,7 +65,7 @@ const FX_STYLE = {
   jump: { n: 8, speed: 70, life: 0.35, size: 5, colors: ['#ffffff'], shake: 0, up: 30 },
 };
 
-export function createGameView(host, cap, gameId, accent = '#33ff66') {
+export function createGameView(host, cap, gameId, accent = '#33ff66', title = '') {
   let renderer;
   const canvas = document.createElement('canvas');
   canvas.className = 'gl3d';
@@ -173,7 +174,7 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
   }
 
   // —— post-processing ——
-  let composer = null, bloom = null, trails = null;
+  let composer = null, bloom = null, trails = null, renderPass = null;
   function setupTier() {
     const t = getTier();
     renderer.setPixelRatio(pixelRatio());
@@ -182,10 +183,11 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
     sun.castShadow = t === 'high';
     [solidMat, glassMat, polyMesh.material, boardMat, floor.material].forEach((m) => { m.needsUpdate = true; });
     composer?.dispose?.();
-    composer = null; bloom = null; trails = null;
+    composer = null; bloom = null; trails = null; renderPass = null;
     if (t !== 'low') {
       composer = new EffectComposer(renderer);
-      composer.addPass(new RenderPass(scene, camera));
+      renderPass = new RenderPass(scene, camera);
+      composer.addPass(renderPass);
       if (t === 'high') { trails = new AfterimagePass(0.38); composer.addPass(trails); }
       bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), t === 'high' ? 0.6 : 0.5, 0.4, 0.78);
       // add the glow to rgb only and keep the scene's alpha, so a transparent clear (page backdrop) stays see-through
@@ -441,6 +443,7 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
   const tmpP = new THREE.Vector3(), tmpL = new THREE.Vector3(), tmpU = new THREE.Vector3();
   const rig = makeRig(gameId, W, H);
   let camMode = 'classic', avatarFn = null, fovNow = 30;
+  let arc = null; // ARCADE mode: cabinet scene that shows this board on its CRT (src/three/arcade.js)
   let world = null, worldName = 'neon', worldLoading = null;
   let backdropOn = false; // animated page backdrop shows through: transparent clear, no floor/grid
   function applyBackdrop() {
@@ -464,7 +467,8 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
     basePose(pose);
     tgtPos.set(pose.x + Math.sin(now / 2600) * W * 0.012, pose.y, pose.z);
     tgtLook.set(0, 0, lookZ()); tgtUp.set(0, 1, 0);
-    let mode = camMode;
+    let mode = camMode === 'arcade' ? 'classic' : camMode; // arcade: the board itself uses the classic view
+    const cm = mode;
     if (mode !== 'classic') {
       let av = null;
       try { av = avatarFn?.() || null; } catch { av = null; }
@@ -523,11 +527,26 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
       r.scale.set(s, s, s);
       r.material.opacity = (1 - r.userData.t) * 0.9;
     }
-    flashLight.intensity = flashI * (camMode === 'classic' ? 1 : 0.18);
+    flashLight.intensity = flashI * (cm === 'classic' ? 1 : 0.18);
     if (trails) trails.enabled = camMode === 'classic' && !world; // a moving camera would smear the whole frame
     flashI *= Math.exp(-dt * 7);
     rimMat.userData.glow.value = 1.1 + Math.sin(now / 400) * 0.25;
 
+    if (camMode === 'arcade' && arc) {
+      // board (classic view, dark floor + grid) -> texture on the cabinet CRT, then the cabinet in front of the backdrop
+      const rt = arc.target(cw, ch, pixelRatio());
+      const fv = floor.visible, gv = grid.visible;
+      if (!world) floor.visible = grid.visible = true;
+      renderer.setClearColor(0x05040a, 1);
+      renderer.setRenderTarget(rt); renderer.clear(); renderer.render(scene, camera); renderer.setRenderTarget(null);
+      floor.visible = fv; grid.visible = gv;
+      renderer.setClearColor(0x05040a, backdropOn ? 0 : 1);
+      arc.update(now, camera.aspect);
+      if (renderPass) { renderPass.scene = arc.scene; renderPass.camera = arc.camera; }
+      if (composer) composer.render(dt); else renderer.render(arc.scene, arc.camera);
+      return;
+    }
+    if (renderPass) { renderPass.scene = scene; renderPass.camera = camera; }
     if (composer) composer.render(dt); else renderer.render(scene, camera);
   }
 
@@ -590,7 +609,16 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
       }
       return { left: (x0 + 1) / 2 * cw, right: (x1 + 1) / 2 * cw, top: (1 - y1) / 2 * ch, bottom: (1 - y0) / 2 * ch, w: cw, h: ch };
     },
-    setCamMode(m) { camMode = m; },
+    setCamMode(m) {
+      if (m === 'arcade' && camMode !== 'arcade') {
+        try {
+          if (!arc) { arc = createArcade({ THREE, renderer, gameId, title: title || gameId.toUpperCase(), accent, hudCanvas: host.querySelector('#gameCanvas') }); arc.loadArt(); }
+          arc.enter();
+        } catch (e) { console.warn('arcade view failed', e); arc = null; }
+      }
+      camMode = m === 'arcade' && !arc ? 'classic' : m;
+      host.classList.toggle('arcade', camMode === 'arcade');
+    },
     /** true: the page backdrop (src/backdrop.js) shows behind the board instead of the dark floor */
     setBackdrop(on) { backdropOn = !!on; applyBackdrop(); },
     getCamMode: () => camMode,
@@ -598,9 +626,10 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
     setState(fn) { stateFn = fn; },
     setWorld,
     getWorld: () => (world ? 'fantasy' : 'neon'),
-    stats: () => ({ live: (() => { let m = 0; camera.updateMatrixWorld(true); for (const q of fitPts) { fitV.copy(q).project(camera); m = Math.max(m, Math.abs(fitV.x), Math.abs(fitV.y)); } return +m.toFixed(3); })(), fit: (() => { const e = extent(fitD, fitLookZ, cfg.tilt); return e && [e.x0, e.x1, e.y0, e.y1].map((v) => +v.toFixed(3)); })(), world: world ? 'fantasy' : 'neon', cam: camMode, fov: Math.round(camera.fov), prims: (boxes.count || 0) + (balls.count || 0) + (discs.count || 0) + (glass.count || 0) + Math.floor(pv / 3), tier: getTier(), fps, particles: points.visible }),
+    stats: () => ({ live: (() => { let m = 0; camera.updateMatrixWorld(true); for (const q of fitPts) { fitV.copy(q).project(camera); m = Math.max(m, Math.abs(fitV.x), Math.abs(fitV.y)); } return +m.toFixed(3); })(), fit: (() => { const e = extent(fitD, fitLookZ, cfg.tilt); return e && [e.x0, e.x1, e.y0, e.y1].map((v) => +v.toFixed(3)); })(), world: world ? 'fantasy' : 'neon', cam: camMode, arcAnim: !!arc?.animating(), fov: Math.round(camera.fov), prims: (boxes.count || 0) + (balls.count || 0) + (discs.count || 0) + (glass.count || 0) + Math.floor(pv / 3), tier: getTier(), fps, particles: points.visible }),
     dispose() {
       offFx(); offTier();
+      arc?.dispose(); arc = null; host.classList.remove('arcade');
       worldLoading = null; world?.dispose(); world = null;
       composer?.dispose?.();
       scene.traverse((o) => { o.geometry?.dispose?.(); if (o.material) [].concat(o.material).forEach((m) => m.dispose()); });

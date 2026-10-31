@@ -2,8 +2,8 @@
 // and FIRST PERSON (eye level from the player). Targets are smoothed so turns never snap the view.
 import * as THREE from 'three';
 
-export const CAM_MODES = ['classic', 'chase', 'fp'];
-export const CAM_LABEL = { classic: 'CLASSIC', chase: 'CHASE', fp: 'FIRST PERSON' };
+export const CAM_MODES = ['classic', 'chase', 'fp', 'arcade'];
+export const CAM_LABEL = { classic: 'CLASSIC', chase: 'CHASE', fp: 'FIRST PERSON', arcade: 'ARCADE' };
 
 // u = size of "one body" in board pixels; low = a dramatic low-angle variant for carts without a real heading
 const RIG = {
@@ -12,7 +12,7 @@ const RIG = {
   asteroiddrift: { u: 20 }, pixelpaddle: { u: 22, low: true }, ladderclimb: { u: 16, follow: true },
   neonracer: { u: 26 }, moondrop: { u: 22, lander: true }, tankduel: { u: 26 },
 };
-export const FOV = { classic: 30, chase: 58, fp: 72 };
+export const FOV = { classic: 30, chase: 58, fp: 72, arcade: 30 };
 
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 

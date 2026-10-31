@@ -671,6 +671,9 @@ html, body {
 .screen .gl3d { position: absolute; left: 3px; top: 3px; z-index: 0; display: block; border-radius: 3px; }
 .screen.is3d #gameCanvas { position: relative; z-index: 1; background: transparent; box-shadow: 0 0 30px rgba(51, 255, 102, 0.12); }
 :root.crt .screen.is3d .gl3d { border-radius: 20px / 28px; filter: saturate(1.3) contrast(1.1) brightness(1.12); }
+/* ARCADE camera: the cart's 2D text layer is drawn onto the cabinet's CRT instead of over the view */
+.screen.is3d.arcade #gameCanvas { opacity: 0; }
+:root.crt .screen.is3d.arcade .gl3d { border-radius: 3px; }
 @media (prefers-reduced-motion: reduce) { .crt-frame.home { transition: none; } }
 
 /* —— Big labelled buttons: SOUND ON/OFF, INFO, FULLSCREEN —— */
@@ -741,6 +744,7 @@ html, body {
 /* —— camera + world buttons —— */
 .btn.chunky.big-btn.cam-btn { color: #ffc6ff; }
 .btn.chunky.big-btn.cam-btn[data-mode="chase"], .btn.chunky.big-btn.cam-btn[data-mode="fp"] { color: #fdffb6; }
+.btn.chunky.big-btn.cam-btn[data-mode="arcade"] { color: #9bf6ff; }
 .cam-btn .cam-k { font-style: normal; opacity: 0.75; }
 .btn.chunky.small.world-btn { display: inline-flex; align-items: center; gap: 6px; color: #ffd8a8; }
 .world-btn .ico { width: 14px; height: 14px; }

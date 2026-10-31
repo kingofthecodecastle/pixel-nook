@@ -196,13 +196,13 @@ const ICON = {
   fsx: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v6H3M21 9h-6V3M15 21v-6h6M3 15h6v6" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="square"/></svg>',
 };
 const dockSound = () => (isMuted() ? ICON.off : ICON.on);
-const CAM_SHORT = { classic: 'CLASSIC', chase: 'CHASE', fp: '1ST' };
+const CAM_SHORT = { classic: 'CLASSIC', chase: 'CHASE', fp: '1ST', arcade: 'ARCADE' };
 const soundHtml = () => (isMuted() ? ICON.off + '<span>SOUND OFF</span>' : ICON.on + '<span>SOUND ON</span>');
 const fsHtml = () => (isFs() ? ICON.fsx + '<span>EXIT FULL</span>' : ICON.fs + '<span>FULLSCREEN</span>');
 // —— camera modes (per game) + steering preference + Snake world ——
-const CAM_MODES = ['classic', 'chase', 'fp'];
+const CAM_MODES = ['classic', 'chase', 'fp', 'arcade'];
 const STEER_GAMES = new Set(['snake', 'mazemunch']);
-const CAM_LABEL = { classic: 'CLASSIC', chase: 'CHASE', fp: 'FIRST PERSON' };
+const CAM_LABEL = { classic: 'CLASSIC', chase: 'CHASE', fp: 'FIRST PERSON', arcade: 'ARCADE' };
 const lsGet = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 const camOf = (id) => { const m = lsGet('pixelnook_cam_' + id, 'classic'); return CAM_MODES.includes(m) ? m : 'classic'; };
@@ -214,8 +214,9 @@ function applyCam() {
   if (!currentId) return;
   const m = camOf(currentId);
   view?.setCamMode?.(m);
-  currentGame?.setCam?.(m);
-  currentGame?.setRelative?.(m !== 'classic' && steerPref() === 'relative');
+  // ARCADE shows the classic board on a cabinet screen, so the cart plays exactly like classic
+  currentGame?.setCam?.(m === 'arcade' ? 'classic' : m);
+  currentGame?.setRelative?.(m !== 'classic' && m !== 'arcade' && steerPref() === 'relative');
   const b = app.querySelector('#camBtn');
   const dl = app.querySelector('#dockCamLbl'); if (dl) dl.textContent = CAM_SHORT[m];
   if (b) { b.innerHTML = camHtml(m); b.title = `Camera: ${CAM_LABEL[m].toLowerCase()} (C or LB to switch)`; b.dataset.mode = m; }
@@ -228,7 +229,7 @@ function cycleCam() {
   app.querySelectorAll('.cam-hint').forEach((el) => el.classList.remove('cam-hint'));
   sfx.click();
   applyCam();
-  toast('Camera: ' + CAM_LABEL[next]);
+  toast('Camera: ' + CAM_LABEL[next], '', 'cam');
 }
 // —— animated background behind the board (global, all carts) ——
 const bgOf = () => { const b = lsGet('pixelnook_bg', 'sunset'); return BG_LIST.includes(b) ? b : 'sunset'; };
@@ -247,7 +248,7 @@ function cycleBg() {
   lsSet('pixelnook_bg', next);
   sfx.click();
   applyBg();
-  toast('Background: ' + BG_LABEL[next]);
+  toast('Background: ' + BG_LABEL[next], '', 'bg');
 }
 function setWorldUi(w) { const b = app.querySelector('#worldBtn'); if (b) { b.innerHTML = worldHtml(w); b.dataset.world = w; } }
 async function toggleWorld() {
@@ -386,15 +387,21 @@ function hsList(id) { const o = cachedGame(id); return rows(o && o.length ? o : 
 
 // —— toasts ——
 let toastWrap = null;
-function toast(html, kind = '') {
+const keyedToasts = new Map(); // key -> live toast element, reused so quick repeats (camera / BG) don't stack
+function toast(html, kind = '', key = '') {
   if (!toastWrap) { toastWrap = document.createElement('div'); toastWrap.className = 'toasts'; document.body.appendChild(toastWrap); }
-  const t = document.createElement('div');
+  let t = key ? keyedToasts.get(key) : null;
+  if (t && t.isConnected) { clearTimeout(t._out); clearTimeout(t._rm); t.classList.remove('out'); }
+  else {
+    t = document.createElement('div');
+    toastWrap.appendChild(t);
+    if (key) keyedToasts.set(key, t);
+  }
   t.className = 'toast ' + kind;
   t.innerHTML = html;
-  toastWrap.appendChild(t);
   while (toastWrap.children.length > 4) toastWrap.firstChild.remove();
-  setTimeout(() => t.classList.add('out'), 2600);
-  setTimeout(() => t.remove(), 3100);
+  t._out = setTimeout(() => t.classList.add('out'), 2600);
+  t._rm = setTimeout(() => { t.remove(); if (key && keyedToasts.get(key) === t) keyedToasts.delete(key); }, 3100);
 }
 onProgress((e) => {
   if (e.type === 'coins' && e.why === 'game') { toast(`+${e.n} 🪙`, 'coin'); sfx.coin(); }
@@ -641,7 +648,7 @@ function startGame(id) {
   if (window.ResizeObserver) { fitRO = new ResizeObserver(() => fitCanvas()); fitRO.observe(app.querySelector('.canvas-wrap')); }
   setFxWidth(canvas.width);
   const screenEl = app.querySelector('.screen');
-  try { view = GV ? GV.createGameView(screenEl, cap, id, meta.accent) : null; } catch (e) { console.warn('3D view failed, using 2D', e); view = null; }
+  try { view = GV ? GV.createGameView(screenEl, cap, id, meta.accent, meta.title) : null; } catch (e) { console.warn('3D view failed, using 2D', e); view = null; }
   cap.mode3d = !!view;
   if (view) {
     view.setAvatar?.(() => currentGame?.avatar?.());
@@ -832,7 +839,7 @@ function openInfo(id) {
         <h3>TOUCH</h3>${list(info.touch)}
         <h3>GAMEPAD</h3>${list([...(info.pad || []), ...PAD_COMMON])}
         <h3>RULES &amp; HAZARDS</h3>${list(info.rules)}
-        <h3>CAMERA (C / LB)</h3>${list(CAM_NOTES[id] || [])}
+        <h3>CAMERA (C / LB)</h3>${list([...(CAM_NOTES[id] || []), 'ARCADE: the game runs on the screen of a 3D arcade cabinet. Controls are the same as CLASSIC.'])}
         <p class="cam-now">Now: <b id="camNow">${CAM_LABEL[camOf(id)]}</b>${STEER_GAMES.has(id) ? ` · <button type="button" class="btn chunky small" id="steerBtn">STEERING: ${steerPref().toUpperCase()}</button>` : ''}</p>
       </div>
       <p class="info-foot">${currentGame ? (willPause || lastStatus === 'Paused' ? 'Game paused · ' : '') : ''}X / Esc / tap outside to close</p>`,

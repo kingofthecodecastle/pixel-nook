@@ -9,7 +9,7 @@ export const CAM_LABEL = { classic: 'CLASSIC', chase: 'CHASE', fp: 'FIRST PERSON
 const RIG = {
   snake: { u: 20 }, mazemunch: { u: 16, fpFwd: 0.55, fpEye: 0.62, chUp: 3.4, chBack: 3.4 }, blockdrop: { u: 18, low: true },
   starblaster: { u: 22 }, brickbash: { u: 24, low: true }, froghop: { u: 28 },
-  asteroiddrift: { u: 20 }, pixelpaddle: { u: 22, low: true }, ladderclimb: { u: 16 },
+  asteroiddrift: { u: 20 }, pixelpaddle: { u: 22, low: true }, ladderclimb: { u: 16, follow: true },
   neonracer: { u: 26 }, moondrop: { u: 22, lander: true }, tankduel: { u: 26 },
 };
 export const FOV = { classic: 30, chase: 58, fp: 72 };
@@ -44,6 +44,13 @@ export function makeRig(gameId, W, H) {
       // low-angle view from the landing zone / a cockpit cam right above the lander (screen-up stays up)
       if (mode === 'chase') { pos.set(A.x * 0.6, U * 3.2, H / 2 + U * 3.2); look.set(A.x, U * 0.4, A.z); }
       else { pos.set(A.x, U * 6.5, A.z + U * 1.6); look.set(A.x, 0, A.z + U * 2.6); up.set(0, 0, -1); }
+      return true;
+    }
+    if (r.follow) {
+      // side-view platformers: a heading-locked camera above and in front of the board, so the
+      // girders above/below and the ladders stay readable instead of being seen edge-on
+      if (mode === 'chase') { pos.set(A.x * 0.85, U * 7.5, A.z + U * 6.5); look.set(A.x * 0.9, 0, A.z - U * 0.8); }
+      else { pos.set(A.x, U * 4.2, A.z + U * 3.4); look.set(A.x, U * 0.3, A.z - U * 0.6); }
       return true;
     }
     f.set(Math.cos(yaw), 0, Math.sin(yaw));

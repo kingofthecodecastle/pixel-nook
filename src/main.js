@@ -11,6 +11,7 @@ import {
 import { fetchAll, fetchGame, submitScore, qualifies, localList, lastInitials, saveInitials, isOnline, cachedGame } from './online.js';
 import { initGamepads } from './gamepad.js';
 import { cartIcon } from './carticons.js';
+import { createBackdrop, BG_LIST, BG_LABEL } from './backdrop.js';
 import { createSnake } from './games/snake.js';
 import { createBlockDrop } from './games/blockdrop.js';
 import { createMazeMunch } from './games/mazemunch.js';
@@ -164,6 +165,7 @@ const webgl = (() => {
 let GV = null;       // gameview module once loaded
 let room = null;     // 3D arcade room
 let view = null;     // 3D view of the running cart
+let backdrop = null; // animated background layer behind the board
 let cap = null;      // draw-call capture of the running cart
 let returnFrom = null;
 let launching = false;
@@ -186,6 +188,7 @@ const ICON = {
   info: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.4" fill="none"/><path d="M12 10.5v7" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/><circle cx="12" cy="6.8" r="1.7" fill="currentColor"/></svg>',
   fs: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9V3h6M15 3h6v6M21 15v6h-6M9 21H3v-6" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="square"/></svg>',
   cam: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h4l2-3h6l2 3h4v12H3z" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linejoin="round"/><circle cx="12" cy="13.5" r="3.6" stroke="currentColor" stroke-width="2.2" fill="none"/></svg>',
+  bg: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4" width="19" height="16" rx="2" stroke="currentColor" stroke-width="2.2" fill="none"/><circle cx="12" cy="12.5" r="3.4" fill="currentColor"/><path d="M3 15.5h18" stroke="currentColor" stroke-width="1.8"/></svg>',
   world: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 19l6-9 4 5 3-4 7 8z" fill="currentColor"/><circle cx="17" cy="6" r="2.6" fill="currentColor"/></svg>',
   pause: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4v16H6zM14 4h4v16h-4z" fill="currentColor"/></svg>',
   play: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg>',
@@ -226,6 +229,25 @@ function cycleCam() {
   sfx.click();
   applyCam();
   toast('Camera: ' + CAM_LABEL[next]);
+}
+// —— animated background behind the board (global, all carts) ——
+const bgOf = () => { const b = lsGet('pixelnook_bg', 'sunset'); return BG_LIST.includes(b) ? b : 'sunset'; };
+const bgHtml = (b) => `${ICON.bg}<span><i class="cam-k">BG · </i>${BG_LABEL[b]}</span><kbd class="key-cap" aria-hidden="true">B</kbd>`;
+function applyBg() {
+  const b = bgOf();
+  backdrop?.set(b);
+  view?.setBackdrop?.(b !== 'off');
+  const btn = app.querySelector('#bgBtn');
+  if (btn) { btn.innerHTML = bgHtml(b); btn.title = `Background: ${BG_LABEL[b].toLowerCase()} (B to switch)`; btn.dataset.bg = b; }
+  const dl = app.querySelector('#dockBgLbl'); if (dl) dl.textContent = BG_LABEL[b];
+}
+function cycleBg() {
+  if (!currentId) return;
+  const next = BG_LIST[(BG_LIST.indexOf(bgOf()) + 1) % BG_LIST.length];
+  lsSet('pixelnook_bg', next);
+  sfx.click();
+  applyBg();
+  toast('Background: ' + BG_LABEL[next]);
 }
 function setWorldUi(w) { const b = app.querySelector('#worldBtn'); if (b) { b.innerHTML = worldHtml(w); b.dataset.world = w; } }
 async function toggleWorld() {
@@ -282,6 +304,7 @@ window.addEventListener('keydown', (e) => {
   if (document.querySelector('.ini-panel')) return; // typing initials
   if (e.code === 'KeyF' && !e.repeat) { e.preventDefault(); e.stopImmediatePropagation(); toggleFullscreen(); }
   else if (e.code === 'KeyC' && !e.repeat && currentGame && !modalEl) { e.preventDefault(); e.stopImmediatePropagation(); cycleCam(); }
+  else if (e.code === 'KeyB' && !e.repeat && currentGame && !modalEl) { e.preventDefault(); e.stopImmediatePropagation(); cycleBg(); }
   else if (e.code === 'Escape' && rootEl.classList.contains('pseudo-fs') && !modalEl) { setPseudoFs(false); }
 }, { capture: true });
 
@@ -496,6 +519,7 @@ function startGame(id) {
           <button type="button" class="btn chunky big-btn info-btn" id="infoBtn" aria-label="Game info" title="How to play (Y on gamepad)">${ICON.info}<span>INFO</span></button>
           <button type="button" class="btn chunky big-btn mute-btn" id="muteBtn">${soundHtml()}</button>
           <button type="button" class="btn chunky big-btn cam-btn" id="camBtn">${camHtml(camOf(id))}</button>
+          <button type="button" class="btn chunky big-btn bg-btn" id="bgBtn">${bgHtml(bgOf())}</button>
           <button type="button" class="btn chunky big-btn fs-btn" id="fsBtn">${fsHtml()}</button>
         </div>
       </header>
@@ -512,6 +536,7 @@ function startGame(id) {
           <button type="button" class="btn chunky dock-btn" id="dockRestart" title="Restart (R)">${ICON.restart}</button>
           <button type="button" class="btn chunky dock-btn dock-mute" id="dockMute">${dockSound()}</button>
           <button type="button" class="btn chunky dock-btn dock-cam" id="dockCam" title="Camera (C)">${ICON.cam}<span id="dockCamLbl">${CAM_SHORT[camOf(id)]}</span><kbd class="key-cap" aria-hidden="true">C</kbd></button>
+          <button type="button" class="btn chunky dock-btn dock-bg" id="dockBg" title="Background (B)">${ICON.bg}<span id="dockBgLbl">${BG_LABEL[bgOf()]}</span><kbd class="key-cap" aria-hidden="true">B</kbd></button>
           <button type="button" class="btn chunky dock-btn dock-exit" id="dockExit" title="Exit fullscreen (F / Esc)">${ICON.fsx}<span>EXIT</span></button>
         </div>
       </div>
@@ -539,6 +564,7 @@ function startGame(id) {
   `;
 
   screenFlashEl = app.querySelector('#screenFlash');
+  try { backdrop = createBackdrop(app.querySelector('#playFrame'), () => ({ board: app.querySelector('.screen'), stage: app.querySelector('.canvas-wrap') })); } catch (e) { console.warn('backdrop failed', e); backdrop = null; }
   const canvas = app.querySelector('#gameCanvas');
   cap = captureCanvas(canvas);
   const noSaveNow = () => !!currentGame?._debug?.()?.noSave;
@@ -652,6 +678,9 @@ function startGame(id) {
   app.querySelector('#worldBtn')?.addEventListener('click', (e) => { e.currentTarget.blur(); toggleWorld(); });
   if (!view) { app.querySelector('#camBtn').hidden = true; app.querySelector('#worldBtn')?.setAttribute('hidden', ''); }
   applyCam();
+  app.querySelector('#bgBtn').addEventListener('click', (e) => { e.currentTarget.blur(); cycleBg(); });
+  app.querySelector('#dockBg').addEventListener('click', (e) => { e.currentTarget.blur(); cycleBg(); });
+  applyBg();
   app.querySelector('#pauseBtn').addEventListener('click', () => currentGame?.togglePause());
   app.querySelector('#dockPause').addEventListener('click', (e) => { e.currentTarget.blur(); currentGame?.togglePause(); });
   app.querySelector('#dockRestart').addEventListener('click', (e) => { e.currentTarget.blur(); currentGame?.restart(); showBoard(); });
@@ -731,6 +760,8 @@ function teardownGame() {
   currentId = null;
   view?.dispose();
   view = null;
+  backdrop?.destroy();
+  backdrop = null;
   cap = null;
 }
 

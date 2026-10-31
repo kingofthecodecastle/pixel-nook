@@ -70,7 +70,7 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
   canvas.className = 'gl3d';
   host.prepend(canvas);
   try {
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: getTier() !== 'low', powerPreference: 'high-performance', alpha: false });
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: getTier() !== 'low', powerPreference: 'high-performance', alpha: true });
   } catch (e) {
     canvas.remove();
     return null;
@@ -188,6 +188,13 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
       composer.addPass(new RenderPass(scene, camera));
       if (t === 'high') { trails = new AfterimagePass(0.38); composer.addPass(trails); }
       bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), t === 'high' ? 0.6 : 0.5, 0.4, 0.78);
+      // add the glow to rgb only and keep the scene's alpha, so a transparent clear (page backdrop) stays see-through
+      const bm = bloom.blendMaterial;
+      if (bm) {
+        bm.blending = THREE.CustomBlending; bm.blendEquation = bm.blendEquationAlpha = THREE.AddEquation;
+        bm.blendSrc = THREE.SrcAlphaFactor; bm.blendDst = THREE.OneFactor;
+        bm.blendSrcAlpha = THREE.ZeroFactor; bm.blendDstAlpha = THREE.OneFactor;
+      }
       composer.addPass(bloom);
       composer.addPass(new OutputPass());
     }
@@ -435,6 +442,11 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
   const rig = makeRig(gameId, W, H);
   let camMode = 'classic', avatarFn = null, fovNow = 30;
   let world = null, worldName = 'neon', worldLoading = null;
+  let backdropOn = false; // animated page backdrop shows through: transparent clear, no floor/grid
+  function applyBackdrop() {
+    floor.visible = grid.visible = !backdropOn && !world;
+    renderer.setClearColor(0x05040a, backdropOn ? 0 : 1);
+  }
   const ease = (t) => 1 - Math.pow(1 - t, 3);
   let last = 0, frames = 0, fpsT0 = 0, fps = 0;
   const watchdog = makeWatchdog();
@@ -534,6 +546,7 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
     if (name !== 'fantasy' || gameId !== 'snake') {
       world?.dispose(); world = null;
       neonParts.forEach((o) => { o.visible = true; });
+      applyBackdrop();
       scene.fog = NEON_FOG; scene.background = null;
       renderer.toneMapping = THREE.NoToneMapping; renderer.toneMappingExposure = 1;
       sun.visible = true; hemi.visible = true;
@@ -578,6 +591,8 @@ export function createGameView(host, cap, gameId, accent = '#33ff66') {
       return { left: (x0 + 1) / 2 * cw, right: (x1 + 1) / 2 * cw, top: (1 - y1) / 2 * ch, bottom: (1 - y0) / 2 * ch, w: cw, h: ch };
     },
     setCamMode(m) { camMode = m; },
+    /** true: the page backdrop (src/backdrop.js) shows behind the board instead of the dark floor */
+    setBackdrop(on) { backdropOn = !!on; applyBackdrop(); },
     getCamMode: () => camMode,
     setAvatar(fn) { avatarFn = fn; },
     setState(fn) { stateFn = fn; },

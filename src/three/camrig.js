@@ -7,7 +7,7 @@ export const CAM_LABEL = { classic: 'CLASSIC', chase: 'CHASE', fp: 'FIRST PERSON
 
 // u = size of "one body" in board pixels; low = a dramatic low-angle variant for carts without a real heading
 const RIG = {
-  snake: { u: 20 }, mazemunch: { u: 16, fpFwd: 0.55, fpEye: 0.62, chUp: 3.4, chBack: 3.4 }, blockdrop: { u: 18, low: true },
+  snake: { u: 20 }, mazemunch: { u: 16, fpFwd: 0.55, fpEye: 0.62, chUp: 3.4, chBack: 3.4 }, blockdrop: { u: 18, well: true },
   starblaster: { u: 22 }, brickbash: { u: 24, low: true }, froghop: { u: 28 },
   asteroiddrift: { u: 20 }, pixelpaddle: { u: 22, low: true }, ladderclimb: { u: 16, follow: true },
   neonracer: { u: 26 }, moondrop: { u: 22, lander: true }, tankduel: { u: 26 },
@@ -44,6 +44,12 @@ export function makeRig(gameId, W, H) {
       // low-angle view from the landing zone / a cockpit cam right above the lander (screen-up stays up)
       if (mode === 'chase') { pos.set(A.x * 0.6, U * 3.2, H / 2 + U * 3.2); look.set(A.x, U * 0.4, A.z); }
       else { pos.set(A.x, U * 6.5, A.z + U * 1.6); look.set(A.x, 0, A.z + U * 2.6); up.set(0, 0, -1); }
+      return true;
+    }
+    if (r.well) {
+      // tall puzzle well: chase = in front and above, whole well in view; fp = from the well's top edge looking down
+      if (mode === 'chase') { pos.set(A.x * 0.3, U * 9, H / 2 + U * 8); look.set(A.x * 0.2, 0, H * 0.02); }
+      else { pos.set(A.x * 0.4, U * 11, -H / 2 - U * 1.5); look.set(A.x * 0.25, 0, H * 0.18); }
       return true;
     }
     if (r.follow) {

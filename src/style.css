@@ -821,3 +821,8 @@ html, body {
 .cam-banner small { display: block; margin-top: 8px; font-size: 7px; color: #b8b8d0; }
 .cam-banner.out { opacity: 0; }
 @media (max-width: 620px) { .crt-frame > .cam-banner { font-size: 10px; padding: 10px 12px; } .cam-banner .key-cap { font-size: 10px; } }
+
+/* pixel icon on each cartridge label: takes the ridge's spot, like a sticker on the cart */
+.cart-icon-wrap { display: flex; justify-content: center; align-items: center; height: clamp(22px, 3.4vh, 30px); margin: -2px 0 4px; pointer-events: none; }
+.cart:has(.cart-icon) .cart-ridge { display: none; }
+.cart-icon { display: block; width: auto; height: 100%; image-rendering: pixelated; filter: drop-shadow(1px 0 0 #000) drop-shadow(-1px 0 0 #000) drop-shadow(0 1px 0 #000) drop-shadow(0 -1px 0 #000) drop-shadow(2px 2px 0 rgba(0,0,0,0.5)); }

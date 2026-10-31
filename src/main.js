@@ -10,6 +10,7 @@ import {
 } from './progress.js';
 import { fetchAll, fetchGame, submitScore, qualifies, localList, lastInitials, saveInitials, isOnline, cachedGame } from './online.js';
 import { initGamepads } from './gamepad.js';
+import { cartIcon } from './carticons.js';
 import { createSnake } from './games/snake.js';
 import { createBlockDrop } from './games/blockdrop.js';
 import { createMazeMunch } from './games/mazemunch.js';
@@ -411,6 +412,7 @@ function renderHome() {
         ${Object.values(GAMES).map((g) => `
           <button class="cart${g.id === d.game ? ' is-daily' : ''}" data-game="${g.id}" role="listitem" style="--cart:${g.color};--accent:${g.accent}">
             <div class="cart-ridge"></div>
+            <span class="cart-icon-wrap">${cartIcon(g.id)}</span>
             ${g.id === d.game ? '<span class="cart-daily" title="Daily challenge">★</span>' : ''}
             <span class="cart-info" data-info="${g.id}" role="button" tabindex="0" aria-label="Game info: ${g.title}" title="Game info">i</span>
             <div class="cart-label">

@@ -286,8 +286,8 @@ export function createArcade({ THREE, renderer, gameId, title, accent, hudCanvas
     built.box = { x: half + 0.1, top: top + 0.05, bottom: apronY + 0.02, zFront: Math.cos(0.42) * PD + 0.1 };
   }
 
-  // camera framing: player standing at the cabinet, a little to the left (3/4 view), eyes above the screen
-  const YAW0 = -0.2, PITCH0 = 0.16, FOVA = 27;
+  // camera framing: player standing square in front of the cabinet, eyes above the screen
+  const YAW0 = 0, PITCH0 = 0.16, FOVA = 27;
   const fitV = new THREE.Vector3(), tmpCam = new THREE.PerspectiveCamera(FOVA, 1, 0.05, 60);
   const endLook = new THREE.Vector3(), startPos = new THREE.Vector3(), startLook = new THREE.Vector3();
   const look = new THREE.Vector3(), camDir = new THREE.Vector3(), endPos = new THREE.Vector3();

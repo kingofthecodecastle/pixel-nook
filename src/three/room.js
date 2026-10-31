@@ -126,7 +126,7 @@ export function createRoom(games) {
     x.fillStyle = c.g.color; x.fillRect(Math.floor(54 + Math.sin(t * 1.7 + s) * 40), 82, 18, 6);
     x.font = `8px ${FONT}`; x.textAlign = 'center'; x.fillStyle = '#fff';
     x.fillText(c.g.title.toUpperCase(), 64, 11);
-    if (Math.floor(t * 2) % 2) { x.fillStyle = '#ffe066'; x.fillText('INSERT COIN', 64, 52); }
+    if ((t + c.seed * 0.13) % 2.4 < 1.7) { x.fillStyle = '#ffe066'; x.fillText('INSERT COIN', 64, 52); }
     x.fillStyle = 'rgba(0,0,0,0.25)'; for (let y = 0; y < 96; y += 2) x.fillRect(0, y, 128, 1);
     c.tex.needsUpdate = true;
   }

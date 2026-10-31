@@ -238,5 +238,11 @@ export const isMusicPlaying = () => !!timer;
 /** Call from a user gesture: unlocks audio and starts the menu loop if it is wanted. */
 export function resumeAudio() {
   if (muted) return;
-  try { const c = getCtx(); c.resume().then(() => { if (musicWanted) startMusic(); }); } catch (_) {}
+  try {
+    const c = getCtx();
+    if (c.state === 'running') { if (musicWanted && !timer) startMusic(); return; }
+    // Safari/iOS: playing a silent buffer inside the gesture unlocks output
+    try { const b = c.createBufferSource(); b.buffer = c.createBuffer(1, 1, 22050); b.connect(c.destination); b.start(0); } catch (_) {}
+    c.resume().then(() => { if (musicWanted) startMusic(); }).catch(() => {});
+  } catch (_) {}
 }

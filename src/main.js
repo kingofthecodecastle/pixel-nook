@@ -408,6 +408,7 @@ onProgress((e) => {
 const unlockAudio = () => resumeAudio();
 window.addEventListener('pointerdown', unlockAudio, { capture: true });
 window.addEventListener('keydown', unlockAudio, { capture: true });
+for (const ev of ['click', 'pointerup', 'mouseup', 'touchend']) window.addEventListener(ev, unlockAudio, { capture: true });
 
 function renderHome() {
   teardownGame();

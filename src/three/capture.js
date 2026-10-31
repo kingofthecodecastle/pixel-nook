@@ -93,7 +93,7 @@ export function captureCanvas(canvas) {
       const area = Math.abs(w * h * (m.a * m.d - m.b * m.c));
       if (area >= W() * H() * 0.9) {
         const a = alphaOf(real.fillStyle);
-        if (a < 0.97) return real.fillRect(x, y, w, h); // dim overlay (pause / game over) stays 2D
+        if (a < 0.97) return; // no dim box over the 3D scene (pause / game over text still shows)
         cap.bg = parseColor(real.fillStyle);
         cap.ops.length = 0; // a full opaque fill paints over everything before it
         return;

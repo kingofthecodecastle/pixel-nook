@@ -209,7 +209,9 @@ const camOf = (id) => { const m = lsGet('pixelnook_cam_' + id, 'arcade'); return
 const steerPref = () => (lsGet('pixelnook_steer', 'relative') === 'absolute' ? 'absolute' : 'relative');
 const worldOf = (id) => (id === 'snake' && lsGet('pixelnook_world_snake', 'neon') === 'fantasy' ? 'fantasy' : 'neon');
 const camHtml = (m) => `${ICON.cam}<span><i class="cam-k">CAMERA · </i>${CAM_LABEL[m]}</span><kbd class="key-cap" aria-hidden="true">C</kbd>`;
-const worldHtml = (w) => `${ICON.world}<span>WORLD: ${w === 'fantasy' ? 'FANTASY' : 'CLASSIC NEON'}</span>`;
+const SPARK = '<svg class="spark" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 0L6.2 3.8 10 5 6.2 6.2 5 10 3.8 6.2 0 5 3.8 3.8z" fill="currentColor"/></svg>';
+const worldHtml = (w) => `${ICON.world}<span>WORLD: ${w === 'fantasy' ? 'FANTASY' : 'CLASSIC NEON'}</span>${w === 'fantasy' ? '' : `<i class="world-tag">${SPARK}NEW</i>`}`;
+const dockWorldHtml = (w) => `${ICON.world}<span>${w === 'fantasy' ? 'FANTASY' : 'NEON'}</span>`;
 function applyCam() {
   if (!currentId) return;
   const m = camOf(currentId);
@@ -260,13 +262,21 @@ function cycleBg() {
   applyBg();
   toast('Background: ' + BG_LABEL[next], '', 'bg');
 }
-function setWorldUi(w) { const b = app.querySelector('#worldBtn'); if (b) { b.innerHTML = worldHtml(w); b.dataset.world = w; } }
+function setWorldUi(w) {
+  const b = app.querySelector('#worldBtn'); if (b) { b.innerHTML = worldHtml(w); b.dataset.world = w; }
+  const d = app.querySelector('#dockWorld'); if (d) { d.innerHTML = dockWorldHtml(w); d.dataset.world = w; }
+}
 async function toggleWorld() {
   if (currentId !== 'snake' || !view?.setWorld) return;
   const next = worldOf('snake') === 'fantasy' ? 'neon' : 'fantasy';
   lsSet('pixelnook_world_snake', next);
   sfx.click();
   setWorldUi(next);
+  app.querySelectorAll('.world-hint').forEach((el) => el.classList.remove('world-hint'));
+  // the fantasy cliff is made to be seen from behind the snake: switching world also picks the camera
+  // (FANTASY -> CHASE, CLASSIC NEON -> ARCADE), saved like a C-key choice; only on this user action
+  const cam = next === 'fantasy' ? 'chase' : 'arcade';
+  if (camOf('snake') !== cam) { lsSet('pixelnook_cam_snake', cam); applyCam(); toast('Camera: ' + CAM_LABEL[cam], '', 'cam'); }
   const b = app.querySelector('#worldBtn'); if (b && next === 'fantasy') b.classList.add('loading');
   try { await view.setWorld(next); } catch (e) { console.warn('world failed', e); }
   b?.classList.remove('loading');
@@ -555,13 +565,14 @@ function startGame(id) {
           <button type="button" class="btn chunky dock-btn dock-mute" id="dockMute">${dockSound()}</button>
           <button type="button" class="btn chunky dock-btn dock-cam" id="dockCam" title="Camera (C)">${ICON.cam}<span id="dockCamLbl">${CAM_SHORT[camOf(id)]}</span><kbd class="key-cap" aria-hidden="true">C</kbd></button>
           <button type="button" class="btn chunky dock-btn dock-bg" id="dockBg" title="Background (B)">${ICON.bg}<span id="dockBgLbl">${BG_LABEL[bgOf()]}</span><kbd class="key-cap" aria-hidden="true">B</kbd></button>
+          ${id === 'snake' ? `<button type="button" class="btn chunky dock-btn dock-world" id="dockWorld" title="Switch world: classic neon or the fantasy cliff" data-world="${worldOf(id)}">${dockWorldHtml(worldOf(id))}</button>` : ''}
           <button type="button" class="btn chunky dock-btn dock-exit" id="dockExit" title="Exit fullscreen (F / Esc)">${ICON.fsx}<span>EXIT</span></button>
         </div>
       </div>
       <div class="play-actions">
         <button type="button" class="btn chunky small" id="pauseBtn">PAUSE</button>
         <button type="button" class="btn chunky small" id="restartBtn">RESTART</button>
-        ${id === 'snake' ? `<button type="button" class="btn chunky small world-btn" id="worldBtn" title="Switch world: classic neon or the fantasy cliff">${worldHtml(worldOf(id))}</button>` : ''}
+        ${id === 'snake' ? `<button type="button" class="btn chunky small world-btn" id="worldBtn" data-world="${worldOf(id)}" title="Switch world: classic neon or the fantasy cliff">${worldHtml(worldOf(id))}</button>` : ''}
       </div>
       <div class="touch-pad" aria-label="Touch controls">
         <div class="dpad">
@@ -697,7 +708,8 @@ function startGame(id) {
   app.querySelector('#fsBtn').addEventListener('click', (e) => { e.currentTarget.blur(); toggleFullscreen(); });
   app.querySelector('#camBtn').addEventListener('click', (e) => { e.currentTarget.blur(); cycleCam(); });
   app.querySelector('#worldBtn')?.addEventListener('click', (e) => { e.currentTarget.blur(); toggleWorld(); });
-  if (!view) { app.querySelector('#camBtn').hidden = true; app.querySelector('#worldBtn')?.setAttribute('hidden', ''); }
+  app.querySelector('#dockWorld')?.addEventListener('click', (e) => { e.currentTarget.blur(); toggleWorld(); });
+  if (!view) { app.querySelector('#camBtn').hidden = true; app.querySelector('#worldBtn')?.setAttribute('hidden', ''); app.querySelector('#dockWorld')?.setAttribute('hidden', ''); }
   applyCam();
   app.querySelector('#bgBtn').addEventListener('click', (e) => { e.currentTarget.blur(); cycleBg(); });
   app.querySelector('#dockBg').addEventListener('click', (e) => { e.currentTarget.blur(); cycleBg(); });
@@ -720,6 +732,17 @@ function startGame(id) {
     setTimeout(() => frame?.appendChild(hint), 600);
     setTimeout(() => hint.classList.add('out'), 2600);
     setTimeout(() => hint.remove(), 3100);
+  }
+  // the WORLD switch (Snake only) is easy to miss: one small, short hint, once ever, after the camera hints
+  if (view?.setWorld && app.querySelector('#worldBtn') && worldOf(id) === 'neon' && lsGet('pixelnook_world_hint_seen', '') !== '1') {
+    lsSet('pixelnook_world_hint_seen', '1');
+    const frame = app.querySelector('#playFrame'), wb = app.querySelector('#worldBtn');
+    const hint = document.createElement('div');
+    hint.className = 'cam-banner world-banner';
+    hint.innerHTML = `${SPARK} NEW: TRY THE FANTASY WORLD ${SPARK}`;
+    setTimeout(() => { if (currentId !== id) return; frame?.appendChild(hint); wb?.classList.add('world-hint'); }, 3900);
+    setTimeout(() => hint.classList.add('out'), 6400);
+    setTimeout(() => { hint.remove(); wb?.classList.remove('world-hint'); }, 6900);
   }
   app.querySelector('#restartBtn').addEventListener('click', () => { currentGame?.restart(); showBoard(); });
   // ARCADE cabinet: its PAUSE / RESTART buttons do exactly what the side-panel buttons do; a plain click = the cart's tap

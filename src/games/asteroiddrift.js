@@ -59,7 +59,7 @@ export function createAsteroidDrift(canvas, hooks) {
           if (b.life > 0 && dist2(b, r) < R * R) {
             b.life = 0; r.dead = true;
             g.add(SIZES[r.size].pts);
-            emit(r.size > 1 ? 'boom' : 'explode', r.x, r.y, { scale: 0.6 + r.size * 0.25 });
+            emit(r.size > 1 ? 'boom' : 'explode', r.x, r.y, { color: '#d9c7a3', scale: 0.35 + r.size * 0.1, noLight: true, small: true });
             burst(s, r.x, r.y, '#d4c4a8', 8);
             if (r.size > 1) for (let i = 0; i < 2; i++) born.push(makeRock(r.size - 1, r.x, r.y, s.wave));
             break;

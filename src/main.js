@@ -200,12 +200,12 @@ const CAM_SHORT = { classic: 'CLASSIC', chase: 'CHASE', fp: '1ST', arcade: 'ARCA
 const soundHtml = () => (isMuted() ? ICON.off + '<span>SOUND OFF</span>' : ICON.on + '<span>SOUND ON</span>');
 const fsHtml = () => (isFs() ? ICON.fsx + '<span>EXIT FULL</span>' : ICON.fs + '<span>FULLSCREEN</span>');
 // —— camera modes (per game) + steering preference + Snake world ——
-const CAM_MODES = ['classic', 'chase', 'fp', 'arcade'];
+const CAM_MODES = ['arcade', 'classic', 'chase', 'fp']; // C / LB cycle order; ARCADE is the default
 const STEER_GAMES = new Set(['snake', 'mazemunch']);
 const CAM_LABEL = { classic: 'CLASSIC', chase: 'CHASE', fp: 'FIRST PERSON', arcade: 'ARCADE' };
 const lsGet = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
-const camOf = (id) => { const m = lsGet('pixelnook_cam_' + id, 'classic'); return CAM_MODES.includes(m) ? m : 'classic'; };
+const camOf = (id) => { const m = lsGet('pixelnook_cam_' + id, 'arcade'); return CAM_MODES.includes(m) ? m : 'arcade'; };
 const steerPref = () => (lsGet('pixelnook_steer', 'relative') === 'absolute' ? 'absolute' : 'relative');
 const worldOf = (id) => (id === 'snake' && lsGet('pixelnook_world_snake', 'neon') === 'fantasy' ? 'fantasy' : 'neon');
 const camHtml = (m) => `${ICON.cam}<span><i class="cam-k">CAMERA · </i>${CAM_LABEL[m]}</span><kbd class="key-cap" aria-hidden="true">C</kbd>`;
@@ -216,6 +216,16 @@ function applyCam() {
   view?.setCamMode?.(m);
   // ARCADE shows the classic board on a cabinet screen, so the cart plays exactly like classic
   currentGame?.setCam?.(m === 'arcade' ? 'classic' : m);
+  if (m === 'arcade' && view?.arcadeOwnsPointer?.() && lsGet('pixelnook_arcade_drag_hint_seen', '') !== '1') {
+    lsSet('pixelnook_arcade_drag_hint_seen', '1');
+    const frame = app.querySelector('#playFrame');
+    const hint = document.createElement('div');
+    hint.className = 'cam-banner drag-hint';
+    hint.textContent = 'DRAG TO LOOK AROUND';
+    setTimeout(() => frame?.appendChild(hint), 1300);
+    setTimeout(() => hint.classList.add('out'), 3500);
+    setTimeout(() => hint.remove(), 4000);
+  }
   currentGame?.setRelative?.(m !== 'classic' && m !== 'arcade' && steerPref() === 'relative');
   const b = app.querySelector('#camBtn');
   const dl = app.querySelector('#dockCamLbl'); if (dl) dl.textContent = CAM_SHORT[m];
@@ -582,7 +592,9 @@ function startGame(id) {
     const online = cachedGame(id);
     const has = online && online.length;
     title.textContent = has ? '🌐 TOP 10' : online ? '🌐 TOP 10 · empty – local:' : 'TOP 5 · LOCAL';
-    hs.innerHTML = rows(has ? online : localList(id), has ? 10 : 5, mark);
+    const list = has ? online : localList(id);
+    hs.innerHTML = rows(list, has ? 10 : 5, mark);
+    view?.setArcadeScores?.({ best: +(list?.[0]?.score) || 0 }); // read-only: ARCADE CRT header
   };
   fetchGame(id).then(() => { if (currentId === id) showBoard(); });
 
@@ -590,6 +602,7 @@ function startGame(id) {
     onScore(s) {
       const el = app.querySelector('#scoreEl');
       if (el) el.textContent = String(s);
+      view?.setArcadeScores?.({ score: s });
       const fe = app.querySelector('#fsScore'); if (fe) fe.textContent = String(s);
       if (s > 0) checkDaily(id, s, noSaveNow());
     },
@@ -709,6 +722,13 @@ function startGame(id) {
     setTimeout(() => hint.remove(), 3100);
   }
   app.querySelector('#restartBtn').addEventListener('click', () => { currentGame?.restart(); showBoard(); });
+  // ARCADE cabinet: its PAUSE / RESTART buttons do exactly what the side-panel buttons do; a plain click = the cart's tap
+  view?.setArcadeHandlers?.({
+    button: (b) => { if (b === 'pause') currentGame?.togglePause(); else if (b === 'restart') { currentGame?.restart(); showBoard(); } },
+    tap: () => { if (id === 'snake' || id === 'blockdrop') currentGame?.turnLeft?.(); },
+  });
+  view?.setArcadeScores?.({ score: 0 });
+  showBoard();
 
   app.querySelectorAll('.pad-btn[data-dx]').forEach((btn) => {
     const fire = (e) => { e.preventDefault(); currentGame?.setDir(+btn.dataset.dx, +btn.dataset.dy); };
@@ -726,6 +746,7 @@ function startGame(id) {
     const playFrame = app.querySelector('#playFrame');
     const onTap = (e) => {
       if (e.target.closest('button')) return;
+      if (view?.arcadeOwnsPointer?.() && screenEl.contains(e.target)) return; // ARCADE: short click handled by the cabinet view
       e.preventDefault();
       currentGame?.turnLeft?.();
     };

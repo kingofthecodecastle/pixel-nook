@@ -99,7 +99,7 @@ export const INFO = {
 // Shown under every game's gamepad section
 export const PAD_COMMON = ['Y / △: this info · Select / Share: back to the cabinet', 'RB / R1: fullscreen on/off', 'LB / L1: switch camera'];
 // Shown under every game's keyboard section
-export const KEYS_COMMON = ['F: fullscreen on/off', 'C: switch camera (CLASSIC → CHASE → FIRST PERSON)'];
+export const KEYS_COMMON = ['F: fullscreen on/off', 'C: switch camera (ARCADE → CLASSIC → CHASE → FIRST PERSON)'];
 
 // What CHASE and FIRST PERSON mean in each cart (the CAMERA button / C key / LB cycles them; saved per game)
 export const CAM_NOTES = {

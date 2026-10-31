@@ -674,6 +674,10 @@ html, body {
 /* ARCADE camera: the cart's 2D text layer is drawn onto the cabinet's CRT instead of over the view */
 .screen.is3d.arcade #gameCanvas { opacity: 0; }
 :root.crt .screen.is3d.arcade .gl3d { border-radius: 3px; }
+.screen.is3d.arcade { cursor: grab; touch-action: none; }
+.screen.is3d.arcade.arc-hot { cursor: pointer; }
+.screen.is3d.arcade.arc-drag { cursor: grabbing; }
+.crt-frame > .cam-banner.drag-hint { top: 17%; }
 @media (prefers-reduced-motion: reduce) { .crt-frame.home { transition: none; } }
 
 /* —— Big labelled buttons: SOUND ON/OFF, INFO, FULLSCREEN —— */

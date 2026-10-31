@@ -74,7 +74,7 @@ export function createStarBlaster(canvas, hooks) {
           if (!a.dead && overlap(b, a)) {
             a.dead = true; b.dead = true;
             g.add(a.pts);
-            emit('explode', a.x + a.w / 2, a.y + a.h / 2, { color: a.color, scale: 0.8 });
+            emit('explode', a.x + a.w / 2, a.y + a.h / 2, { color: a.color, scale: 0.4, noLight: true, small: true });
             s.booms.push({ x: a.x + a.w / 2, y: a.y + a.h / 2, t: 0.3, c: a.color });
             break;
           }

@@ -205,20 +205,25 @@ export function createGameView(host, cap, gameId, accent = '#33ff66', title = ''
     if (world && bloom) { bloom.strength = 0.42; bloom.threshold = 0.86; bloom.radius = 0.55; }
   }
 
-  let cw = 0, ch = 0;
+  let cw = 0, ch = 0, vw = 0, vh = 0, vox = 3, voy = 3, arcWide = false; // board size / canvas size + offset (differ only in ARCADE)
   function resize(force) {
     const w = Math.max(2, Math.round(host.clientWidth - 6)), h = Math.max(2, Math.round(host.clientHeight - 6));
-    if (!force && w === cw && h === ch) return;
-    cw = w; ch = h;
-    renderer.setSize(w, h, false);
-    canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+    // ARCADE over a backdrop: the cabinet canvas spans the whole play area (the board itself keeps w x h on the CRT)
+    const wrap = arcWide ? host.parentElement : null;
+    const ww = wrap ? Math.max(w, Math.round(wrap.clientWidth)) : w, wh = wrap ? Math.max(h, Math.round(wrap.clientHeight)) : h;
+    const ox = wrap ? Math.round(-host.offsetLeft - host.clientLeft) : 3, oy = wrap ? Math.round(-host.offsetTop - host.clientTop) : 3;
+    if (!force && w === cw && h === ch && ww === vw && wh === vh && ox === vox && oy === voy) return;
+    cw = w; ch = h; vw = ww; vh = wh; vox = ox; voy = oy;
+    renderer.setSize(ww, wh, false);
+    canvas.style.width = ww + 'px'; canvas.style.height = wh + 'px';
+    canvas.style.left = wrap ? ox + 'px' : ''; canvas.style.top = wrap ? oy + 'px' : '';
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     if (composer) {
       composer.setPixelRatio(pixelRatio());
-      composer.setSize(w, h);
+      composer.setSize(ww, wh);
       const s = getTier() === 'high' ? 0.5 : 0.35;
-      bloom?.resolution.set(w * s, h * s);
+      bloom?.resolution.set(ww * s, wh * s);
     }
     pMat.uniforms.uScale.value = h * pixelRatio() * 1.6;
   }
@@ -285,7 +290,9 @@ export function createGameView(host, cap, gameId, accent = '#33ff66', title = ''
     const mult = t === 'high' ? 1 : t === 'mid' ? 0.6 : 0.35;
     const x = (Number.isFinite(ev.x) ? ev.x : W / 2) - W / 2, z = (Number.isFinite(ev.y) ? ev.y : H / 2) - H / 2;
     const n = Math.round(st.n * mult * (ev.scale || 1));
-    const colors = ev.color ? [ev.color, '#ffffff'] : st.colors || ['#ffffff'];
+    // ev.small: a short, tight, single-colour burst (regular kills) – no white core, no ring
+    const colors = ev.color ? (ev.small ? [ev.color] : [ev.color, '#ffffff']) : st.colors || ['#ffffff'];
+    const sz = ev.small ? 0.55 : 1, lf = ev.small ? 0.55 : 1;
     for (let i = 0; i < n; i++) {
       const k = parts.next; parts.next = (parts.next + 1) % PN;
       const a = Math.random() * Math.PI * 2, sp = st.speed * (0.25 + Math.random() * 0.75) * (ev.scale || 1);
@@ -295,12 +302,12 @@ export function createGameView(host, cap, gameId, accent = '#33ff66', title = ''
       parts.vel[k * 3 + 1] = st.up * (0.4 + Math.random() * 0.9);
       parts.vel[k * 3 + 2] = Math.sin(a) * sp * (st.water ? 0.4 : 1);
       parts.grav[k] = st.rise ? 60 : st.water ? 520 : 380;
-      parts.max[k] = parts.life[k] = st.life * (0.6 + Math.random() * 0.6);
-      parts.size[k] = st.size * (0.6 + Math.random() * 0.8);
+      parts.max[k] = parts.life[k] = st.life * lf * (0.6 + Math.random() * 0.6);
+      parts.size[k] = st.size * sz * (0.6 + Math.random() * 0.8);
       tmpC.set(colors[i % colors.length]);
       parts.col[k * 3] = tmpC.r; parts.col[k * 3 + 1] = tmpC.g; parts.col[k * 3 + 2] = tmpC.b;
     }
-    if (st.ring && t !== 'low') {
+    if (st.ring && t !== 'low' && !ev.small) {
       const r = rings.find((q) => q.userData.t >= 1) || rings[0];
       r.position.set(x, 2, z); r.material.color.set(ev.color || st.ring); r.userData.t = 0; r.userData.max = (st.wide ? W * 0.5 : 48) * (ev.scale || 1); r.visible = true;
     }
@@ -444,6 +451,41 @@ export function createGameView(host, cap, gameId, accent = '#33ff66', title = ''
   const rig = makeRig(gameId, W, H);
   let camMode = 'classic', avatarFn = null, fovNow = 30;
   let arc = null; // ARCADE mode: cabinet scene that shows this board on its CRT (src/three/arcade.js)
+  let arcScores = { score: 0, best: 0 }, arcHandlers = {};
+  // ARCADE pointer: drag = look around the cabinet; a short click = cabinet PAUSE / RESTART button or the cart's tap
+  const ptr = { id: null, x0: 0, y0: 0, x: 0, y: 0, drag: false };
+  const ndcOf = (e) => { const r = canvas.getBoundingClientRect(); return [((e.clientX - r.left) / r.width) * 2 - 1, -(((e.clientY - r.top) / r.height) * 2 - 1)]; };
+  const arcOn = () => camMode === 'arcade' && !!arc;
+  const onPDown = (e) => {
+    if (!arcOn() || (e.button ?? 0) > 0 || e.target?.closest?.('button')) return;
+    Object.assign(ptr, { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, drag: false });
+    try { host.setPointerCapture(e.pointerId); } catch {}
+  };
+  const onPMove = (e) => {
+    if (!arcOn()) return;
+    if (ptr.id === e.pointerId) {
+      if (!ptr.drag && Math.hypot(e.clientX - ptr.x0, e.clientY - ptr.y0) > 6) { ptr.drag = true; host.classList.add('arc-drag'); }
+      if (ptr.drag) arc.drag(e.clientX - ptr.x, e.clientY - ptr.y, Math.max(200, ch));
+      ptr.x = e.clientX; ptr.y = e.clientY;
+    } else if (e.pointerType === 'mouse') {
+      const [x, y] = ndcOf(e);
+      host.classList.toggle('arc-hot', !!arc.hit(x, y));
+    }
+  };
+  const onPUp = (e) => {
+    if (ptr.id !== e.pointerId) return;
+    const wasDrag = ptr.drag;
+    ptr.id = null; ptr.drag = false; host.classList.remove('arc-drag');
+    try { host.releasePointerCapture(e.pointerId); } catch {}
+    if (wasDrag || !arcOn() || e.type === 'pointercancel') return;
+    const [x, y] = ndcOf(e);
+    const b = arc.hit(x, y);
+    if (b) { arc.press(b); arcHandlers.button?.(b); } else arcHandlers.tap?.();
+  };
+  host.addEventListener('pointerdown', onPDown);
+  host.addEventListener('pointermove', onPMove);
+  host.addEventListener('pointerup', onPUp);
+  host.addEventListener('pointercancel', onPUp);
   let world = null, worldName = 'neon', worldLoading = null;
   let backdropOn = false; // animated page backdrop shows through: transparent clear, no floor/grid
   function applyBackdrop() {
@@ -460,6 +502,7 @@ export function createGameView(host, cap, gameId, accent = '#33ff66', title = ''
     last = now;
     watchdog(now);
     frames++; if (!fpsT0) fpsT0 = now; else if (now - fpsT0 >= 1000) { fps = Math.round((frames * 1000) / (now - fpsT0)); frames = 0; fpsT0 = now; }
+    arcWide = camMode === 'arcade' && !!arc && backdropOn;
     resize(false);
     if (cap.mode3d && !world) build(cap.ops);
 
@@ -541,7 +584,7 @@ export function createGameView(host, cap, gameId, accent = '#33ff66', title = ''
       renderer.setRenderTarget(rt); renderer.clear(); renderer.render(scene, camera); renderer.setRenderTarget(null);
       floor.visible = fv; grid.visible = gv;
       renderer.setClearColor(0x05040a, backdropOn ? 0 : 1);
-      arc.update(now, camera.aspect);
+      arc.update(now, vw / vh, Math.min(1, flashI / 20000));
       if (renderPass) { renderPass.scene = arc.scene; renderPass.camera = arc.camera; }
       if (composer) composer.render(dt); else renderer.render(arc.scene, arc.camera);
       return;
@@ -609,15 +652,22 @@ export function createGameView(host, cap, gameId, accent = '#33ff66', title = ''
       }
       return { left: (x0 + 1) / 2 * cw, right: (x1 + 1) / 2 * cw, top: (1 - y1) / 2 * ch, bottom: (1 - y0) / 2 * ch, w: cw, h: ch };
     },
+    /** ARCADE: { tap(), button('pause' | 'restart') } for short clicks on the cabinet */
+    setArcadeHandlers(h) { arcHandlers = h || {}; },
+    /** ARCADE: SCORE / HIGH SCORE shown on the cabinet CRT header (display only) */
+    setArcadeScores(o) { Object.assign(arcScores, o); arc?.setScores(arcScores); },
+    /** true while a short click on the stage is handled by ARCADE (cabinet buttons / tap) */
+    arcadeOwnsPointer: () => camMode === 'arcade' && !!arc,
     setCamMode(m) {
       if (m === 'arcade' && camMode !== 'arcade') {
         try {
-          if (!arc) { arc = createArcade({ THREE, renderer, gameId, title: title || gameId.toUpperCase(), accent, hudCanvas: host.querySelector('#gameCanvas') }); arc.loadArt(); }
+          if (!arc) { arc = createArcade({ THREE, renderer, gameId, title: title || gameId.toUpperCase(), accent, hudCanvas: host.querySelector('#gameCanvas') }); arc.loadArt(); arc.setScores(arcScores); }
           arc.enter();
         } catch (e) { console.warn('arcade view failed', e); arc = null; }
       }
       camMode = m === 'arcade' && !arc ? 'classic' : m;
       host.classList.toggle('arcade', camMode === 'arcade');
+      if (camMode !== 'arcade') host.classList.remove('arc-drag', 'arc-hot');
     },
     /** true: the page backdrop (src/backdrop.js) shows behind the board instead of the dark floor */
     setBackdrop(on) { backdropOn = !!on; applyBackdrop(); },
@@ -629,7 +679,9 @@ export function createGameView(host, cap, gameId, accent = '#33ff66', title = ''
     stats: () => ({ live: (() => { let m = 0; camera.updateMatrixWorld(true); for (const q of fitPts) { fitV.copy(q).project(camera); m = Math.max(m, Math.abs(fitV.x), Math.abs(fitV.y)); } return +m.toFixed(3); })(), fit: (() => { const e = extent(fitD, fitLookZ, cfg.tilt); return e && [e.x0, e.x1, e.y0, e.y1].map((v) => +v.toFixed(3)); })(), world: world ? 'fantasy' : 'neon', cam: camMode, arcAnim: !!arc?.animating(), fov: Math.round(camera.fov), prims: (boxes.count || 0) + (balls.count || 0) + (discs.count || 0) + (glass.count || 0) + Math.floor(pv / 3), tier: getTier(), fps, particles: points.visible }),
     dispose() {
       offFx(); offTier();
-      arc?.dispose(); arc = null; host.classList.remove('arcade');
+      arc?.dispose(); arc = null; host.classList.remove('arcade', 'arc-drag', 'arc-hot');
+      host.removeEventListener('pointerdown', onPDown); host.removeEventListener('pointermove', onPMove);
+      host.removeEventListener('pointerup', onPUp); host.removeEventListener('pointercancel', onPUp);
       worldLoading = null; world?.dispose(); world = null;
       composer?.dispose?.();
       scene.traverse((o) => { o.geometry?.dispose?.(); if (o.material) [].concat(o.material).forEach((m) => m.dispose()); });

@@ -2,7 +2,7 @@
 // and FIRST PERSON (eye level from the player). Targets are smoothed so turns never snap the view.
 import * as THREE from 'three';
 
-export const CAM_MODES = ['classic', 'chase', 'fp', 'arcade'];
+export const CAM_MODES = ['arcade', 'classic', 'chase', 'fp'];
 export const CAM_LABEL = { classic: 'CLASSIC', chase: 'CHASE', fp: 'FIRST PERSON', arcade: 'ARCADE' };
 
 // u = size of "one body" in board pixels; low = a dramatic low-angle variant for carts without a real heading

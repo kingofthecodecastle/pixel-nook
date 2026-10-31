@@ -204,7 +204,7 @@ const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 const camOf = (id) => { const m = lsGet('pixelnook_cam_' + id, 'classic'); return CAM_MODES.includes(m) ? m : 'classic'; };
 const steerPref = () => (lsGet('pixelnook_steer', 'relative') === 'absolute' ? 'absolute' : 'relative');
 const worldOf = (id) => (id === 'snake' && lsGet('pixelnook_world_snake', 'neon') === 'fantasy' ? 'fantasy' : 'neon');
-const camHtml = (m) => `${ICON.cam}<span><i class="cam-k">CAMERA · </i>${CAM_LABEL[m]}</span>`;
+const camHtml = (m) => `${ICON.cam}<span><i class="cam-k">CAMERA · </i>${CAM_LABEL[m]}</span><kbd class="key-cap" aria-hidden="true">C</kbd>`;
 const worldHtml = (w) => `${ICON.world}<span>WORLD: ${w === 'fantasy' ? 'FANTASY' : 'CLASSIC NEON'}</span>`;
 function applyCam() {
   if (!currentId) return;
@@ -221,6 +221,8 @@ function cycleCam() {
   const m = camOf(currentId);
   const next = CAM_MODES[(CAM_MODES.indexOf(m) + 1) % CAM_MODES.length];
   lsSet('pixelnook_cam_' + currentId, next);
+  lsSet('pixelnook_cam_used', '1');
+  app.querySelectorAll('.cam-hint').forEach((el) => el.classList.remove('cam-hint'));
   sfx.click();
   applyCam();
   toast('Camera: ' + CAM_LABEL[next]);
@@ -508,7 +510,7 @@ function startGame(id) {
           <button type="button" class="btn chunky dock-btn" id="dockPause" title="Pause / resume (P)">${ICON.pause}</button>
           <button type="button" class="btn chunky dock-btn" id="dockRestart" title="Restart (R)">${ICON.restart}</button>
           <button type="button" class="btn chunky dock-btn dock-mute" id="dockMute">${dockSound()}</button>
-          <button type="button" class="btn chunky dock-btn dock-cam" id="dockCam" title="Camera (C)">${ICON.cam}<span id="dockCamLbl">${CAM_SHORT[camOf(id)]}</span></button>
+          <button type="button" class="btn chunky dock-btn dock-cam" id="dockCam" title="Camera (C)">${ICON.cam}<span id="dockCamLbl">${CAM_SHORT[camOf(id)]}</span><kbd class="key-cap" aria-hidden="true">C</kbd></button>
           <button type="button" class="btn chunky dock-btn dock-exit" id="dockExit" title="Exit fullscreen (F / Esc)">${ICON.fsx}<span>EXIT</span></button>
         </div>
       </div>
@@ -656,6 +658,11 @@ function startGame(id) {
   app.querySelector('#dockCam').addEventListener('click', (e) => { e.currentTarget.blur(); cycleCam(); });
   app.querySelector('#dockExit').addEventListener('click', (e) => { e.currentTarget.blur(); toggleFullscreen(); });
   if (!view) app.querySelector('#dockCam').hidden = true;
+  // make the camera shortcut obvious: pulse the camera buttons + a hint until the player has tried it once
+  if (view && lsGet('pixelnook_cam_used', '') !== '1') {
+    app.querySelectorAll('#camBtn, #dockCam').forEach((el) => el.classList.add('cam-hint'));
+    setTimeout(() => toast('🎥 Press <b>C</b> to switch camera<br><small>CLASSIC · CHASE · FIRST PERSON (LB on a controller)</small>'), 1200);
+  }
   app.querySelector('#restartBtn').addEventListener('click', () => { currentGame?.restart(); showBoard(); });
 
   app.querySelectorAll('.pad-btn[data-dx]').forEach((btn) => {

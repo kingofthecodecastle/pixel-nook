@@ -664,14 +664,12 @@ function startGame(id) {
   if (view && lsGet('pixelnook_cam_hint_seen', '') !== '1') {
     lsSet('pixelnook_cam_hint_seen', '1');
     const frame = app.querySelector('#playFrame');
-    const btns = app.querySelectorAll('#camBtn, #dockCam');
-    btns.forEach((el) => el.classList.add('cam-hint'));
     const hint = document.createElement('div');
     hint.className = 'cam-banner';
-    hint.innerHTML = 'SWITCH CAMERA = <kbd class="key-cap">C</kbd><small>LB on a controller</small>';
-    setTimeout(() => frame?.appendChild(hint), 700);
-    setTimeout(() => hint.classList.add('out'), 4700);
-    setTimeout(() => { hint.remove(); btns.forEach((el) => el.classList.remove('cam-hint')); }, 5300);
+    hint.innerHTML = 'SWITCH CAMERA = <kbd class="key-cap">C</kbd>';
+    setTimeout(() => frame?.appendChild(hint), 600);
+    setTimeout(() => hint.classList.add('out'), 2600);
+    setTimeout(() => hint.remove(), 3100);
   }
   app.querySelector('#restartBtn').addEventListener('click', () => { currentGame?.restart(); showBoard(); });
 

@@ -816,11 +816,9 @@ html, body {
 @keyframes cam-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 224, 102, 0); } 50% { box-shadow: 0 0 0 4px rgba(255, 224, 102, 0.85), 0 0 18px rgba(255, 224, 102, 0.7); } }
 @media (prefers-reduced-motion: reduce) { .cam-hint { animation: none; outline: 2px solid #ffe066; } }
 
-.crt-frame > .cam-banner { position: absolute; left: 0; right: 0; margin: 0 auto; width: max-content; top: 18%; z-index: 50; pointer-events: none; font: 14px/1.4 "Press Start 2P", monospace; color: #ffe066; background: rgba(10, 10, 26, 0.88); border: 3px solid #ffe066; border-radius: 8px; padding: 14px 20px; text-align: center; white-space: nowrap; box-shadow: 0 0 24px rgba(255, 224, 102, 0.45); animation: toast-in 0.25s ease-out; transition: opacity 0.6s; }
-.cam-banner .key-cap { font-size: 14px; padding: 4px 8px; margin-left: 4px; }
-.cam-banner small { display: block; margin-top: 8px; font-size: 7px; color: #b8b8d0; }
+.crt-frame > .cam-banner { position: absolute; left: 0; right: 0; margin: 0 auto; width: max-content; top: 10%; z-index: 50; pointer-events: none; font: 8px/1.4 "Press Start 2P", monospace; color: #ffe066; background: rgba(10, 10, 26, 0.75); border: 2px solid rgba(255, 224, 102, 0.6); border-radius: 5px; padding: 6px 10px; white-space: nowrap; transition: opacity 0.5s; }
+.cam-banner .key-cap { font-size: 8px; padding: 1px 4px; margin-left: 2px; }
 .cam-banner.out { opacity: 0; }
-@media (max-width: 620px) { .crt-frame > .cam-banner { font-size: 10px; padding: 10px 12px; } .cam-banner .key-cap { font-size: 10px; } }
 
 /* pixel icon on each cartridge label: takes the ridge's spot, like a sticker on the cart */
 .cart-icon-wrap { display: flex; justify-content: center; align-items: center; height: clamp(22px, 3.4vh, 30px); margin: -2px 0 4px; pointer-events: none; }

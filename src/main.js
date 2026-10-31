@@ -221,7 +221,6 @@ function cycleCam() {
   const m = camOf(currentId);
   const next = CAM_MODES[(CAM_MODES.indexOf(m) + 1) % CAM_MODES.length];
   lsSet('pixelnook_cam_' + currentId, next);
-  lsSet('pixelnook_cam_used', '1');
   app.querySelectorAll('.cam-hint').forEach((el) => el.classList.remove('cam-hint'));
   sfx.click();
   applyCam();
@@ -658,10 +657,19 @@ function startGame(id) {
   app.querySelector('#dockCam').addEventListener('click', (e) => { e.currentTarget.blur(); cycleCam(); });
   app.querySelector('#dockExit').addEventListener('click', (e) => { e.currentTarget.blur(); toggleFullscreen(); });
   if (!view) app.querySelector('#dockCam').hidden = true;
-  // make the camera shortcut obvious: pulse the camera buttons + a hint until the player has tried it once
-  if (view && lsGet('pixelnook_cam_used', '') !== '1') {
-    app.querySelectorAll('#camBtn, #dockCam').forEach((el) => el.classList.add('cam-hint'));
-    setTimeout(() => toast('🎥 Press <b>C</b> to switch camera<br><small>CLASSIC · CHASE · FIRST PERSON (LB on a controller)</small>'), 1200);
+  // make the camera shortcut obvious: a big 'SWITCH CAMERA = C' banner on the board for a few seconds,
+  // shown once ever (seen in one cart = not shown again)
+  if (view && lsGet('pixelnook_cam_hint_seen', '') !== '1') {
+    lsSet('pixelnook_cam_hint_seen', '1');
+    const frame = app.querySelector('#playFrame');
+    const btns = app.querySelectorAll('#camBtn, #dockCam');
+    btns.forEach((el) => el.classList.add('cam-hint'));
+    const hint = document.createElement('div');
+    hint.className = 'cam-banner';
+    hint.innerHTML = 'SWITCH CAMERA = <kbd class="key-cap">C</kbd><small>LB on a controller</small>';
+    setTimeout(() => frame?.appendChild(hint), 700);
+    setTimeout(() => hint.classList.add('out'), 4700);
+    setTimeout(() => { hint.remove(); btns.forEach((el) => el.classList.remove('cam-hint')); }, 5300);
   }
   app.querySelector('#restartBtn').addEventListener('click', () => { currentGame?.restart(); showBoard(); });
 

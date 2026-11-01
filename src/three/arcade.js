@@ -330,8 +330,10 @@ export function createArcade({ THREE, renderer, gameId, title, accent, hudCanvas
   const anim = { t: 1, dur: 1.2 };
   const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
   let last = 0;
-  // mouse / touch orbit: offsets from the base 3/4 view, damped; eases home after 3 s idle
-  const orb = { y: 0, p: 0, ty: 0, tp: 0, idle: 0 };
+  // orbit offsets from the straight-on view, smoothed. Mouse: follows the pointer over the stage (parallax),
+  // home when it leaves. Touch (no hover): drag, easing home after 3 s idle.
+  const orb = { y: 0, p: 0, ty: 0, tp: 0, idle: 0, touch: false };
+  const HOVER_K = 0.85; // pointer at the stage edge = 85% of the orbit limits (a little gentler)
   const YMAX = 0.61, PMAX = 0.21;
   const ray = new THREE.Raycaster(), ndcV = new THREE.Vector2();
   let glowBoost = 0;
@@ -365,8 +367,8 @@ export function createArcade({ THREE, renderer, gameId, title, accent, hudCanvas
       if (camera.aspect !== aspect || camera.fov !== FOVA) { camera.aspect = aspect; camera.fov = FOVA; camera.updateProjectionMatrix(); }
       solveFit(aspect);
       orb.idle += dt;
-      if (orb.idle > 3) { const k = 1 - Math.exp(-dt * 1.6); orb.ty -= orb.ty * k; orb.tp -= orb.tp * k; }
-      const kd = 1 - Math.exp(-dt * 8);
+      if (orb.touch && orb.idle > 3) { const k = 1 - Math.exp(-dt * 1.6); orb.ty -= orb.ty * k; orb.tp -= orb.tp * k; }
+      const kd = 1 - Math.exp(-dt * (orb.touch ? 8 : 4.5));
       orb.y += (orb.ty - orb.y) * kd; orb.p += (orb.tp - orb.p) * kd;
       // orbit about the cabinet; back off slightly when turned so the edges stay in view
       dirOf(YAW0 + orb.y, PITCH0 + orb.p, camDir);
@@ -387,9 +389,16 @@ export function createArcade({ THREE, renderer, gameId, title, accent, hudCanvas
     animating: () => anim.t < 1,
     /** pointer drag in CSS px (h = view height in px) */
     drag(dx, dy, h) {
-      orb.idle = 0;
+      orb.idle = 0; orb.touch = true;
       orb.ty = Math.max(-YMAX, Math.min(YMAX, orb.ty - (dx / h) * 1.6));
       orb.tp = Math.max(-PMAX, Math.min(PMAX, orb.tp + (dy / h) * 0.9));
+    },
+    /** mouse hover parallax: pointer position over the stage in -1..1 (x right, y up); null = left the stage */
+    look(x, y) {
+      orb.touch = false;
+      if (x == null) { orb.ty = orb.tp = 0; return; }
+      const c = (v) => Math.max(-1, Math.min(1, v));
+      orb.ty = c(x) * YMAX * HOVER_K; orb.tp = c(y) * PMAX * HOVER_K;
     },
     /** which cabinet button (pause / restart) is under the NDC point, or null */
     hit(x, y) {

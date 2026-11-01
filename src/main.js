@@ -223,7 +223,7 @@ function applyCam() {
     const frame = app.querySelector('#playFrame');
     const hint = document.createElement('div');
     hint.className = 'cam-banner drag-hint';
-    hint.textContent = 'DRAG TO LOOK AROUND';
+    hint.textContent = matchMedia('(hover: hover) and (pointer: fine)').matches ? 'MOVE MOUSE TO LOOK AROUND' : 'DRAG TO LOOK AROUND';
     setTimeout(() => frame?.appendChild(hint), 1300);
     setTimeout(() => hint.classList.add('out'), 3500);
     setTimeout(() => hint.remove(), 4000);

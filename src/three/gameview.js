@@ -452,7 +452,8 @@ export function createGameView(host, cap, gameId, accent = '#33ff66', title = ''
   let camMode = 'classic', avatarFn = null, fovNow = 30;
   let arc = null; // ARCADE mode: cabinet scene that shows this board on its CRT (src/three/arcade.js)
   let arcScores = { score: 0, best: 0 }, arcHandlers = {};
-  // ARCADE pointer: drag = look around the cabinet; a short click = cabinet PAUSE / RESTART button or the cart's tap
+  // ARCADE pointer: mouse hover = parallax look around the cabinet (home when it leaves); touch drag = look around;
+  // a click / short tap = cabinet PAUSE / RESTART button or the cart's tap
   const ptr = { id: null, x0: 0, y0: 0, x: 0, y: 0, drag: false };
   const ndcOf = (e) => { const r = canvas.getBoundingClientRect(); return [((e.clientX - r.left) / r.width) * 2 - 1, -(((e.clientY - r.top) / r.height) * 2 - 1)]; };
   const arcOn = () => camMode === 'arcade' && !!arc;
@@ -464,19 +465,23 @@ export function createGameView(host, cap, gameId, accent = '#33ff66', title = ''
   const onPMove = (e) => {
     if (!arcOn()) return;
     if (ptr.id === e.pointerId) {
-      if (!ptr.drag && Math.hypot(e.clientX - ptr.x0, e.clientY - ptr.y0) > 6) { ptr.drag = true; host.classList.add('arc-drag'); }
+      if (!ptr.drag && e.pointerType !== 'mouse' && Math.hypot(e.clientX - ptr.x0, e.clientY - ptr.y0) > 6) ptr.drag = true;
       if (ptr.drag) arc.drag(e.clientX - ptr.x, e.clientY - ptr.y, Math.max(200, ch));
       ptr.x = e.clientX; ptr.y = e.clientY;
-    } else if (e.pointerType === 'mouse') {
+    }
+    if (e.pointerType === 'mouse') {
       const [x, y] = ndcOf(e);
+      arc.look(x, y);
       host.classList.toggle('arc-hot', !!arc.hit(x, y));
     }
   };
+  const onPLeave = (e) => { if (e.pointerType === 'mouse' && ptr.id == null) { arc?.look(null); host.classList.remove('arc-hot'); } };
   const onPUp = (e) => {
     if (ptr.id !== e.pointerId) return;
     const wasDrag = ptr.drag;
-    ptr.id = null; ptr.drag = false; host.classList.remove('arc-drag');
+    ptr.id = null; ptr.drag = false;
     try { host.releasePointerCapture(e.pointerId); } catch {}
+    if (e.pointerType === 'mouse' && arc) { const r = canvas.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) arc.look(null); }
     if (wasDrag || !arcOn() || e.type === 'pointercancel') return;
     const [x, y] = ndcOf(e);
     const b = arc.hit(x, y);
@@ -486,6 +491,7 @@ export function createGameView(host, cap, gameId, accent = '#33ff66', title = ''
   host.addEventListener('pointermove', onPMove);
   host.addEventListener('pointerup', onPUp);
   host.addEventListener('pointercancel', onPUp);
+  host.addEventListener('pointerleave', onPLeave);
   let world = null, worldName = 'neon', worldLoading = null;
   let backdropOn = false; // animated page backdrop shows through: transparent clear, no floor/grid
   function applyBackdrop() {
@@ -667,7 +673,7 @@ export function createGameView(host, cap, gameId, accent = '#33ff66', title = ''
       }
       camMode = m === 'arcade' && !arc ? 'classic' : m;
       host.classList.toggle('arcade', camMode === 'arcade');
-      if (camMode !== 'arcade') host.classList.remove('arc-drag', 'arc-hot');
+      if (camMode !== 'arcade') host.classList.remove('arc-hot');
     },
     /** true: the page backdrop (src/backdrop.js) shows behind the board instead of the dark floor */
     setBackdrop(on) { backdropOn = !!on; applyBackdrop(); },
@@ -679,9 +685,9 @@ export function createGameView(host, cap, gameId, accent = '#33ff66', title = ''
     stats: () => ({ live: (() => { let m = 0; camera.updateMatrixWorld(true); for (const q of fitPts) { fitV.copy(q).project(camera); m = Math.max(m, Math.abs(fitV.x), Math.abs(fitV.y)); } return +m.toFixed(3); })(), fit: (() => { const e = extent(fitD, fitLookZ, cfg.tilt); return e && [e.x0, e.x1, e.y0, e.y1].map((v) => +v.toFixed(3)); })(), world: world ? 'fantasy' : 'neon', cam: camMode, arcAnim: !!arc?.animating(), fov: Math.round(camera.fov), prims: (boxes.count || 0) + (balls.count || 0) + (discs.count || 0) + (glass.count || 0) + Math.floor(pv / 3), tier: getTier(), fps, particles: points.visible }),
     dispose() {
       offFx(); offTier();
-      arc?.dispose(); arc = null; host.classList.remove('arcade', 'arc-drag', 'arc-hot');
+      arc?.dispose(); arc = null; host.classList.remove('arcade', 'arc-hot');
       host.removeEventListener('pointerdown', onPDown); host.removeEventListener('pointermove', onPMove);
-      host.removeEventListener('pointerup', onPUp); host.removeEventListener('pointercancel', onPUp);
+      host.removeEventListener('pointerup', onPUp); host.removeEventListener('pointercancel', onPUp); host.removeEventListener('pointerleave', onPLeave);
       worldLoading = null; world?.dispose(); world = null;
       composer?.dispose?.();
       scene.traverse((o) => { o.geometry?.dispose?.(); if (o.material) [].concat(o.material).forEach((m) => m.dispose()); });

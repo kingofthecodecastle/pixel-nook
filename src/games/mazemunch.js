@@ -1,6 +1,7 @@
 import { sfx } from '../audio.js';
 import { emit } from '../fx.js';
 import { saveHighScore, getHighScores } from '../storage.js';
+import { drawStartScreen } from './startscreen.js';
 
 // 1 = wall, 0 = dot, 2 = empty (no dot), 3 = power-ish empty start
 const MAZE = [
@@ -67,7 +68,18 @@ export function createMazeMunch(canvas, hooks) {
     mouth = 0;
     hooks.onScore(score);
     hooks.onExtra?.({ lives });
+    ready = true; // old-arcade start screen until start()
+    hooks.onStatus('Ready');
+  }
+  let ready = true;
+  function start() {
+    if (!ready) return;
+    ready = false;
+    moveAcc = 0;
+    ghostAcc = 0;
+    last = performance.now();
     hooks.onStatus('Playing');
+    sfx.select();
   }
 
   function respawn() {
@@ -285,6 +297,12 @@ export function createMazeMunch(canvas, hooks) {
   const GHOST_MS = 170;
 
   function update(now) {
+    if (ready) {
+      last = now;
+      draw();
+      drawStartScreen(ctx, canvas.width, canvas.height, { title: hooks.title, accent: hooks.accent });
+      return;
+    }
     mouth += 0.25;
     if (alive && !paused) {
       const dt = Math.min(Math.max(now - last, 0), 100);
@@ -330,7 +348,7 @@ export function createMazeMunch(canvas, hooks) {
   }
 
   function togglePause() {
-    if (!alive) return;
+    if (!alive || ready) return;
     paused = !paused;
     last = performance.now();
     sfx.pause();
@@ -345,11 +363,13 @@ export function createMazeMunch(canvas, hooks) {
   resetFull();
   return {
     update,
+    start,
+    isReady: () => ready,
     onKey,
     setDir: steer,
     setRelative(on) { relative = !!on; },
     avatar() {
-      const f = alive && !paused ? Math.min(1, moveAcc / PLAYER_MS) : 0;
+      const f = alive && !paused && !ready ? Math.min(1, moveAcc / PLAYER_MS) : 0;
       const mv = canWalk(player.x + player.dx, player.y + player.dy) ? f * 0.9 : 0;
       const hx = player.dx || player.ndx, hy = player.dy || player.ndy;
       return { x: (player.x + 0.5 + player.dx * mv) * CELL, y: (player.y + 0.5 + player.dy * mv) * CELL, h: hx || hy ? Math.atan2(hy, hx) : undefined };

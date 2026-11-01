@@ -2,6 +2,7 @@ import { sfx } from '../audio.js';
 import { emit } from '../fx.js';
 import { saveHighScore, getHighScores } from '../storage.js';
 import { getSkin } from '../progress.js';
+import { drawStartScreen } from './startscreen.js';
 
 const COLS = 16;
 const ROWS = 16;
@@ -29,7 +30,17 @@ export function createSnake(canvas, hooks) {
     flash = 0;
     spawnFood();
     hooks.onScore(score);
+    ready = true; // old-arcade start screen until start()
+    hooks.onStatus('Ready');
+  }
+  let ready = true;
+  function start() {
+    if (!ready) return;
+    ready = false;
+    acc = 0;
+    last = performance.now();
     hooks.onStatus('Playing');
+    sfx.select();
   }
 
   function spawnFood() {
@@ -169,6 +180,12 @@ export function createSnake(canvas, hooks) {
   }
 
   function update(now) {
+    if (ready) {
+      last = now;
+      draw();
+      drawStartScreen(ctx, canvas.width, canvas.height, { title: hooks.title, accent: hooks.accent });
+      return;
+    }
     if (!alive || paused) {
       draw();
       return;
@@ -194,7 +211,7 @@ export function createSnake(canvas, hooks) {
   }
 
   function togglePause() {
-    if (!alive) return;
+    if (!alive || ready) return;
     paused = !paused;
     last = performance.now();
     sfx.pause();
@@ -209,6 +226,8 @@ export function createSnake(canvas, hooks) {
   reset();
   return {
     update,
+    start,
+    isReady: () => ready,
     onKey,
     setDir: steer,
     turnLeft,
@@ -216,13 +235,13 @@ export function createSnake(canvas, hooks) {
     setRelative(on) { relative = !!on; },
     /** Camera target: head centre, nudged along the heading by the tick progress so the camera glides. */
     avatar() {
-      const h = snake[0], f = alive && !paused ? Math.min(1, acc / tickMs) : 0;
+      const h = snake[0], f = alive && !paused && !ready ? Math.min(1, acc / tickMs) : 0;
       const d = alive ? nextDir : dir;
       return { x: (h.x + 0.5 + dir.x * f * 0.9) * CELL, y: (h.y + 0.5 + dir.y * f * 0.9) * CELL, h: Math.atan2(d.y, d.x) };
     },
     /** Snapshot for the Fantasy world renderer. */
     state() {
-      return { snake, dir, food, alive, over, paused, frac: alive && !paused ? Math.min(1, acc / tickMs) : 0, COLS, ROWS, CELL, score };
+      return { snake, dir, food, alive, over, paused, ready, frac: alive && !paused && !ready ? Math.min(1, acc / tickMs) : 0, COLS, ROWS, CELL, score };
     },
     togglePause,
     restart,

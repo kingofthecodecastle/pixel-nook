@@ -3,6 +3,7 @@
 // plus optional held-input helpers (onKeyUp, release, action, actionUp) used by main.js.
 import { sfx } from '../audio.js';
 import { saveHighScore, getHighScores } from '../storage.js';
+import { drawStartScreen } from './startscreen.js';
 
 export const FONT = '"Press Start 2P", monospace';
 
@@ -57,12 +58,12 @@ export function makeGame(canvas, hooks, spec) {
     add(n) { api.score += n; hooks.onScore(api.score); },
     setLives(n) { api.lives = n; hooks.onExtra?.({ lives: n }); },
     extra(label, value) { hooks.onExtra?.({ label, value }); },
-    status(t) { hooks.onStatus(t); },
+    status(t) { if (api.ready) { api.pendingStatus = t; return; } hooks.onStatus(t); }, // e.g. 'Choose mode' shows once started
     flash(kind) { hooks.onFlash?.(kind); },
     note(t) {
       hooks.onStatus(t);
       clearTimeout(statusTimer);
-      statusTimer = setTimeout(() => { if (!api.over && !api.paused) hooks.onStatus('Playing'); }, 900);
+      statusTimer = setTimeout(() => { if (!api.over && !api.paused && !api.ready) hooks.onStatus('Playing'); }, 900);
     },
     /** Lose a life. Returns true if that was the last one. */
     hit() {
@@ -85,6 +86,7 @@ export function makeGame(canvas, hooks, spec) {
       hooks.onGameOver?.(api.score, getHighScores(spec.id), { noSave: api.noSave });
     },
     text(str, x, y, size = 8, color = '#fff', align = 'center') {
+      if (api.ready) return; // start screen: only its own card text shows (menus/titles appear once started)
       ctx.font = `${size}px ${FONT}`;
       ctx.textAlign = align;
       ctx.textBaseline = 'alphabetic';
@@ -105,14 +107,30 @@ export function makeGame(canvas, hooks, spec) {
     api.noSave = false;
     api.t = 0;
     api.s = {};
+    api.ready = true; // waits on the start screen until start()
+    api.pendingStatus = null;
+    clearTimeout(statusTimer);
     hooks.onScore(0);
-    hooks.onStatus('Playing');
     spec.init(api);
+    clearTimeout(statusTimer);
+    hooks.onStatus('Ready');
     last = performance.now();
+  }
+
+  function start() {
+    if (!api.ready) return;
+    api.ready = false;
+    for (const k in keys) keys[k] = false;
+    for (const k in pads) pads[k] = false;
+    last = performance.now();
+    hooks.onStatus(api.pendingStatus || 'Playing');
+    api.pendingStatus = null;
+    sfx.select();
   }
 
   function press(name, code) {
     if (api.paused) return;
+    if (api.ready) { start(); return; }
     spec.press?.(name, api, code);
   }
 
@@ -121,11 +139,15 @@ export function makeGame(canvas, hooks, spec) {
     last = now;
     if (!(dt > 0)) dt = 0;
     dt = Math.min(dt, 0.05);
-    if (!api.paused && !api.over) {
+    if (!api.paused && !api.over && !api.ready) {
       api.t += dt;
       spec.update(dt, api);
     }
     spec.draw(ctx, api);
+    if (api.ready) {
+      drawStartScreen(ctx, spec.W, spec.H, { title: hooks.title, accent: hooks.accent });
+      return;
+    }
     if (api.paused && !api.over) {
       ctx.fillStyle = 'rgba(0,0,0,0.55)';
       ctx.fillRect(0, 0, spec.W, spec.H);
@@ -176,7 +198,7 @@ export function makeGame(canvas, hooks, spec) {
   function actionUp() { pads.action = false; }
 
   function togglePause() {
-    if (api.over) return;
+    if (api.over || api.ready) return;
     api.paused = !api.paused;
     last = performance.now();
     sfx.pause();
@@ -190,7 +212,8 @@ export function makeGame(canvas, hooks, spec) {
 
   reset();
   return {
-    update, onKey, onKeyUp, setDir, release, action, actionUp, togglePause, restart,
+    update, onKey, onKeyUp, setDir, release, action, actionUp, togglePause, restart, start,
+    isReady: () => !!api.ready,
     avatar: spec.avatar ? () => spec.avatar(api) : undefined,
     setCam(mode) { api.cam = mode; },
     destroy() { clearTimeout(statusTimer); window.removeEventListener('blur', onBlur); },

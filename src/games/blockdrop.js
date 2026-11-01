@@ -1,6 +1,7 @@
 import { sfx } from '../audio.js';
 import { emit } from '../fx.js';
 import { saveHighScore, getHighScores } from '../storage.js';
+import { drawStartScreen } from './startscreen.js';
 
 const COLS = 10;
 const ROWS = 20;
@@ -31,7 +32,6 @@ function rotate(m) {
       r[x][n - 1 - y] = m[y][x];
   return r;
 }
-
 export function createBlockDrop(canvas, hooks) {
   const ctx = canvas.getContext('2d');
   canvas.width = COLS * CELL;
@@ -73,7 +73,17 @@ export function createBlockDrop(canvas, hooks) {
     flash = 0;
     hooks.onScore(score);
     hooks.onExtra?.({ lines, level });
+    ready = true; // old-arcade start screen until start()
+    hooks.onStatus('Ready');
+  }
+  let ready = true;
+  function start() {
+    if (!ready) return;
+    ready = false;
+    acc = 0;
+    last = performance.now();
     hooks.onStatus('Playing');
+    sfx.select();
   }
 
   function collides(p, ox = 0, oy = 0, shape = p.shape) {
@@ -265,6 +275,12 @@ export function createBlockDrop(canvas, hooks) {
   }
 
   function update(now) {
+    if (ready) {
+      last = now;
+      draw();
+      drawStartScreen(ctx, canvas.width, canvas.height, { title: hooks.title, accent: hooks.accent });
+      return;
+    }
     if (alive && !paused) {
       acc += Math.min(Math.max(now - last, 0), 250);
       last = now;
@@ -298,7 +314,7 @@ export function createBlockDrop(canvas, hooks) {
   }
 
   function togglePause() {
-    if (!alive) return;
+    if (!alive || ready) return;
     paused = !paused;
     last = performance.now();
     sfx.pause();
@@ -318,6 +334,8 @@ export function createBlockDrop(canvas, hooks) {
 
   return {
     update,
+    start,
+    isReady: () => ready,
     onKey,
     setDir,
     action: rotateCW,

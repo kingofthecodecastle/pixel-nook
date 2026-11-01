@@ -24,6 +24,7 @@ import { createLadderClimb } from './games/ladderclimb.js';
 import { createNeonRacer } from './games/neonracer.js';
 import { createMoonDrop } from './games/moondrop.js';
 import { createTankDuel } from './games/tankduel.js';
+import { gateStart } from './games/startscreen.js';
 const GAMES = {
   snake: {
     id: 'snake',
@@ -210,7 +211,7 @@ const steerPref = () => (lsGet('pixelnook_steer', 'relative') === 'absolute' ? '
 const worldOf = (id) => (id === 'snake' && lsGet('pixelnook_world_snake', 'neon') === 'fantasy' ? 'fantasy' : 'neon');
 const camHtml = (m) => `${ICON.cam}<span><i class="cam-k">CAMERA · </i>${CAM_LABEL[m]}</span><kbd class="key-cap" aria-hidden="true">C</kbd>`;
 const SPARK = '<svg class="spark" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 0L6.2 3.8 10 5 6.2 6.2 5 10 3.8 6.2 0 5 3.8 3.8z" fill="currentColor"/></svg>';
-const worldHtml = (w) => `${ICON.world}<span>WORLD: ${w === 'fantasy' ? 'FANTASY' : 'CLASSIC NEON'}</span>${w === 'fantasy' ? '' : `<i class="world-tag">${SPARK}NEW</i>`}`;
+const worldHtml = (w) => `${ICON.world}<span><i class="cam-k">WORLD · </i>${w === 'fantasy' ? 'FANTASY' : 'NEON'}</span>${w === 'fantasy' ? '' : `<i class="world-tag">${SPARK}NEW</i>`}`;
 const dockWorldHtml = (w) => `${ICON.world}<span>${w === 'fantasy' ? 'FANTASY' : 'NEON'}</span>`;
 function applyCam() {
   if (!currentId) return;
@@ -479,12 +480,14 @@ function renderHome() {
       <footer class="home-foot">
         <div class="foot-btns">
           <button type="button" class="btn chunky big-btn mute-btn" id="muteBtn">${soundHtml()}</button>
-          <button type="button" class="btn chunky big-btn fs-btn" id="fsBtn">${fsHtml()}</button>
-          <button type="button" class="btn chunky small" id="boardBtn">🏆 LEADERBOARD</button>
-          <button type="button" class="btn chunky small" id="shopBtn">🛒 SHOP</button>
-          <button type="button" class="btn chunky small" id="achBtn">⭐ ${achDone}/${ACHIEVEMENTS.length}</button>
-          <button type="button" class="btn chunky small${isCrt() ? ' on' : ''}" id="crtBtn" aria-pressed="${isCrt()}">📺 CRT ${isCrt() ? 'ON' : 'OFF'}</button>
-          <span class="coins" title="Coins">🪙 <span id="coinCount">${P.coins}</span></span>
+          <div class="foot-tools" role="group" aria-label="More">
+            <button type="button" class="btn chunky small mini-btn" id="boardBtn">🏆 LEADERBOARD</button>
+            <button type="button" class="btn chunky small mini-btn" id="shopBtn">🛒 SHOP</button>
+            <button type="button" class="btn chunky small mini-btn" id="achBtn">⭐ ${achDone}/${ACHIEVEMENTS.length}</button>
+            <button type="button" class="btn chunky small mini-btn${isCrt() ? ' on' : ''}" id="crtBtn" aria-pressed="${isCrt()}">📺 CRT ${isCrt() ? 'ON' : 'OFF'}</button>
+            <button type="button" class="btn chunky big-btn mini-btn fs-btn" id="fsBtn">${fsHtml()}</button>
+            <span class="coins" title="Coins">🪙 <span id="coinCount">${P.coins}</span></span>
+          </div>
         </div>
         <p class="hint">Arrows / WASD · Space fire/jump · P pause · R restart · F fullscreen · C camera · 🎮 gamepad <span id="netState"></span></p>
       </footer>
@@ -541,14 +544,19 @@ function startGame(id) {
       <div class="scanlines"></div>
       <div class="screen-flash" id="screenFlash"></div>
       <header class="play-bar">
-        <button type="button" class="btn chunky small" id="backBtn">◀ CABINET</button>
+        <button type="button" class="btn chunky big-btn games-btn" id="backBtn" title="Back to the game select">◀ <span>GAMES</span></button>
         <div class="play-title" style="color:${meta.accent}">${meta.title}</div>
         <div class="bar-right">
-          <button type="button" class="btn chunky big-btn info-btn" id="infoBtn" aria-label="Game info" title="How to play (Y on gamepad)">${ICON.info}<span>INFO</span></button>
-          <button type="button" class="btn chunky big-btn mute-btn" id="muteBtn">${soundHtml()}</button>
-          <button type="button" class="btn chunky big-btn cam-btn" id="camBtn">${camHtml(camOf(id))}</button>
-          <button type="button" class="btn chunky big-btn bg-btn" id="bgBtn">${bgHtml(bgOf())}</button>
-          <button type="button" class="btn chunky big-btn fs-btn" id="fsBtn">${fsHtml()}</button>
+          <div class="bar-main" role="group" aria-label="Main">
+            ${id === 'snake' ? `<button type="button" class="btn chunky big-btn world-btn" id="worldBtn" data-world="${worldOf(id)}" title="Switch world: classic neon or the fantasy cliff">${worldHtml(worldOf(id))}</button>` : ''}
+            <button type="button" class="btn chunky big-btn mute-btn" id="muteBtn">${soundHtml()}</button>
+          </div>
+          <div class="bar-tools" role="group" aria-label="View options">
+            <button type="button" class="btn chunky big-btn mini-btn cam-btn" id="camBtn">${camHtml(camOf(id))}</button>
+            <button type="button" class="btn chunky big-btn mini-btn bg-btn" id="bgBtn">${bgHtml(bgOf())}</button>
+            <button type="button" class="btn chunky big-btn mini-btn fs-btn" id="fsBtn">${fsHtml()}</button>
+            <button type="button" class="btn chunky big-btn mini-btn info-btn" id="infoBtn" aria-label="Game info" title="How to play (Y on gamepad)">${ICON.info}<span>INFO</span></button>
+          </div>
         </div>
       </header>
       <div class="hud">
@@ -570,9 +578,8 @@ function startGame(id) {
         </div>
       </div>
       <div class="play-actions">
-        <button type="button" class="btn chunky small" id="pauseBtn">PAUSE</button>
-        <button type="button" class="btn chunky small" id="restartBtn">RESTART</button>
-        ${id === 'snake' ? `<button type="button" class="btn chunky small world-btn" id="worldBtn" data-world="${worldOf(id)}" title="Switch world: classic neon or the fantasy cliff">${worldHtml(worldOf(id))}</button>` : ''}
+        <button type="button" class="btn chunky small mini-btn" id="pauseBtn" title="Pause / resume (P)">${ICON.pause}<span>PAUSE</span></button>
+        <button type="button" class="btn chunky small mini-btn" id="restartBtn" title="Restart (R)">${ICON.restart}<span>RESTART</span></button>
       </div>
       <div class="touch-pad" aria-label="Touch controls">
         <div class="dpad">
@@ -664,8 +671,10 @@ function startGame(id) {
     },
   };
 
-  lastStatus = 'Playing';
-  currentGame = meta.factory(canvas, hooks);
+  hooks.title = meta.title; hooks.accent = meta.accent; // for the start screen card
+  lastStatus = 'Ready';
+  currentGame = gateStart(meta.factory(canvas, hooks)); // waits on the old-arcade start screen until a tap / key / pad press
+
   cap.W = canvas.width; cap.H = canvas.height;
   fitCanvas();
   fitRO?.disconnect();
@@ -748,7 +757,10 @@ function startGame(id) {
   // ARCADE cabinet: its PAUSE / RESTART buttons do exactly what the side-panel buttons do; a plain click = the cart's tap
   view?.setArcadeHandlers?.({
     button: (b) => { if (b === 'pause') currentGame?.togglePause(); else if (b === 'restart') { currentGame?.restart(); showBoard(); } },
-    tap: () => { if (id === 'snake' || id === 'blockdrop') currentGame?.turnLeft?.(); },
+    tap: () => {
+      if (currentGame?.isReady?.()) { currentGame.start(); return; } // start screen: the click only starts the game
+      if (id === 'snake' || id === 'blockdrop') currentGame?.turnLeft?.();
+    },
   });
   view?.setArcadeScores?.({ score: 0 });
   showBoard();
@@ -764,12 +776,22 @@ function startGame(id) {
   });
 
   // Tap/click anywhere (not on UI buttons):
-  // Snake = one left turn; Block Drop = one rotate (same gesture)
-  if (id === 'snake' || id === 'blockdrop') {
+  // on the start screen = start the game (that tap does nothing else); then Snake = one left turn, Block Drop = one rotate
+  {
     const playFrame = app.querySelector('#playFrame');
+    const wrapEl = app.querySelector('.canvas-wrap');
     const onTap = (e) => {
+      if (e._pnTap) return; // canvas + frame both listen: handle each press once
+      e._pnTap = true;
       if (e.target.closest('button')) return;
       if (view?.arcadeOwnsPointer?.() && screenEl.contains(e.target)) return; // ARCADE: short click handled by the cabinet view
+      if (currentGame?.isReady?.()) {
+        if (!wrapEl?.contains(e.target)) return;
+        e.preventDefault();
+        currentGame.start();
+        return;
+      }
+      if (id !== 'snake' && id !== 'blockdrop') return;
       e.preventDefault();
       currentGame?.turnLeft?.();
     };
@@ -827,7 +849,7 @@ function openModal(inner, cfg = {}) {
   closeModal(false);
   modalCfg = cfg;
   pausedByModal = false;
-  if (cfg.pause && currentGame && lastStatus !== 'Paused' && lastStatus !== 'Game Over') {
+  if (cfg.pause && currentGame && lastStatus !== 'Paused' && lastStatus !== 'Game Over' && lastStatus !== 'Ready') {
     currentGame.togglePause?.();
     pausedByModal = lastStatus === 'Paused';
   }
@@ -872,7 +894,7 @@ function closeModal(resume) {
 function openInfo(id) {
   const meta = GAMES[id], info = INFO[id];
   if (!meta || !info) return;
-  const willPause = !!currentGame && lastStatus !== 'Paused' && lastStatus !== 'Game Over';
+  const willPause = !!currentGame && lastStatus !== 'Paused' && lastStatus !== 'Game Over' && lastStatus !== 'Ready';
   const list = (arr) => `<ul>${arr.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`;
   openModal(`
       <p class="info-kicker">GAME INFO</p>
@@ -1108,6 +1130,8 @@ function onPad({ pad, btn, down, repeat }) {
   if (currentGame) {
     const id = currentId;
     if (down && !repeat) {
+      // start screen: Start / A / ✕ / any face button or the d-pad only starts the game
+      if (currentGame.isReady?.() && ['start', 'a', 'b', 'x', 'up', 'down', 'left', 'right'].includes(btn)) { currentGame.start(); return; }
       if (btn === 'start') { currentGame.onKey(fakeKey(lastStatus === 'Game Over' ? 'KeyR' : 'KeyP', lastStatus === 'Game Over' ? 'r' : 'p')); return; }
       if (btn === 'select') { sfx.blip(); renderHome(); return; }
       if (btn === 'y') { sfx.click(); openInfo(id); return; }

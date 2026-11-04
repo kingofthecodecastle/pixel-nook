@@ -1,7 +1,7 @@
 import { sfx } from '../audio.js';
 import { emit } from '../fx.js';
 import { saveHighScore, getHighScores } from '../storage.js';
-import { drawStartScreen } from './startscreen.js';
+import { drawStartScreen, drawRestartHint } from './startscreen.js';
 
 // 1 = wall, 0 = dot, 2 = empty (no dot), 3 = power-ish empty start
 const MAZE = [
@@ -290,6 +290,7 @@ export function createMazeMunch(canvas, hooks) {
       ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 10);
       ctx.fillStyle = '#fff';
       ctx.fillText('SCORE ' + score, canvas.width / 2, canvas.height / 2 + 12);
+      drawRestartHint(ctx, canvas.width, canvas.height / 2 + 36);
     }
   }
 

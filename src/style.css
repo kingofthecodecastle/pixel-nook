@@ -717,8 +717,8 @@ html, body {
     padding: clamp(10px, 1.6vh, 18px) clamp(14px, 1.6vw, 26px);
     display: grid;
     grid-template-columns: minmax(0, 1fr) clamp(200px, 17vw, 270px);
-    grid-template-rows: auto auto auto auto minmax(0, 1fr);
-    grid-template-areas: "bar bar" "stage hud" "stage actions" "stage hs" "stage pad";
+    grid-template-rows: auto auto auto auto auto minmax(0, 1fr);
+    grid-template-areas: "bar bar" "stage cam" "stage hud" "stage actions" "stage hs" "stage pad";
     column-gap: clamp(10px, 1.4vw, 22px);
   }
   .crt-frame.play .play-bar { grid-area: bar; padding: 4px 6px 8px; }
@@ -792,6 +792,7 @@ html, body {
 :root.is-fs .crt-frame.play > .play-bar,
 :root.is-fs .crt-frame.play > .hud,
 :root.is-fs .crt-frame.play > .play-actions,
+:root.is-fs .crt-frame.play > .cam-switch,
 :root.is-fs .crt-frame.play > .hs-panel { display: none !important; }
 :root.is-fs .crt-frame.play .canvas-wrap {
   grid-area: stage; position: relative; padding: 0; min-height: 0; min-width: 0; overflow: hidden;
@@ -940,3 +941,30 @@ html, body {
   .bar-main .world-btn .cam-k { display: none; }
 }
 @media (min-width: 761px) { .home .foot-btns, .home .foot-tools { flex-wrap: nowrap; } }
+
+/* —— SWITCH CAMERA ANGLE: one big button right of the stage (below it on phones), with a stepped pixel blink —— */
+.btn.chunky.big-btn.cam-switch {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: calc(100% - 16px); margin: 4px auto 6px;
+  min-height: 48px; padding: 8px 10px; font-size: 8px; line-height: 1.3; white-space: normal; text-align: left;
+  color: #9bf6ff; background: linear-gradient(180deg, #2f5f8a, #173452); border: 3px solid #111;
+  box-shadow: 0 4px 0 #000, inset 0 2px 0 rgba(255, 255, 255, 0.2);
+  animation: cam-blink 1.8s steps(1, end) infinite;
+}
+.btn.chunky.big-btn.cam-switch.cam-fresh { animation-duration: 1.1s; }
+.cam-switch .ico { width: 20px; height: 20px; flex: none; }
+.cam-sw-txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cam-sw-k { font-weight: normal; color: #fff; text-shadow: 2px 2px 0 #000; }
+.cam-sw-now { font-size: 7px; color: #ffe066; text-shadow: 1px 1px 0 #000; }
+.cam-switch .key-cap { margin-left: auto; flex: none; }
+.btn.chunky.big-btn.cam-switch[data-mode="chase"], .btn.chunky.big-btn.cam-switch[data-mode="fp"] { color: #fdffb6; }
+/* two-step blink: the bevel border lights up yellow, then goes dark again (no smooth fade, like an attract-mode lamp) */
+@keyframes cam-blink {
+  0% { border-color: #111; box-shadow: 0 4px 0 #000, inset 0 2px 0 rgba(255, 255, 255, 0.2); }
+  55% { border-color: #ffe066; box-shadow: 0 4px 0 #000, 0 0 0 2px #8a6d00, 0 0 12px rgba(255, 224, 102, 0.55), inset 0 2px 0 rgba(255, 255, 255, 0.2); }
+}
+.btn.chunky.big-btn.cam-switch:active { transform: translateY(3px); box-shadow: 0 1px 0 #000; }
+@media (prefers-reduced-motion: reduce) { .btn.chunky.big-btn.cam-switch { animation: none; border-color: #ffe066; } }
+@media (min-width: 900px) and (min-height: 480px) {
+  .crt-frame.play > .cam-switch { grid-area: cam; width: 100%; margin: 8px 0 2px; }
+}
+@media (max-width: 620px) { .btn.chunky.big-btn.cam-switch { font-size: 8px; } }

@@ -155,6 +155,7 @@ let keyHandler = null;
 let keyUpHandler = null;
 let screenFlashEl = null;
 let lastStatus = 'Playing';
+let overAt = 0; // when the current game ended (ignore taps right at the moment of death)
 
 // —— 3D: the arcade room (menu) and the per-game 3D view load in the background; plain 2D if WebGL is missing ——
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -209,7 +210,7 @@ const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 const camOf = (id) => { const m = lsGet('pixelnook_cam_' + id, 'arcade'); return CAM_MODES.includes(m) ? m : 'arcade'; };
 const steerPref = () => (lsGet('pixelnook_steer', 'relative') === 'absolute' ? 'absolute' : 'relative');
 const worldOf = (id) => (id === 'snake' && lsGet('pixelnook_world_snake', 'neon') === 'fantasy' ? 'fantasy' : 'neon');
-const camHtml = (m) => `${ICON.cam}<span><i class="cam-k">CAMERA · </i>${CAM_LABEL[m]}</span><kbd class="key-cap" aria-hidden="true">C</kbd>`;
+const camHtml = (m) => `${ICON.cam}<span class="cam-sw-txt"><b class="cam-sw-k">► SWITCH CAMERA ANGLE</b><span class="cam-sw-now">NOW: ${CAM_LABEL[m]}</span></span><kbd class="key-cap" aria-hidden="true">C</kbd>`;
 const SPARK = '<svg class="spark" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 0L6.2 3.8 10 5 6.2 6.2 5 10 3.8 6.2 0 5 3.8 3.8z" fill="currentColor"/></svg>';
 const worldHtml = (w) => `${ICON.world}<span><i class="cam-k">WORLD · </i>${w === 'fantasy' ? 'FANTASY' : 'NEON'}</span>${w === 'fantasy' ? '' : `<i class="world-tag">${SPARK}NEW</i>`}`;
 const dockWorldHtml = (w) => `${ICON.world}<span>${w === 'fantasy' ? 'FANTASY' : 'NEON'}</span>`;
@@ -240,6 +241,8 @@ function cycleCam() {
   const next = CAM_MODES[(CAM_MODES.indexOf(m) + 1) % CAM_MODES.length];
   lsSet('pixelnook_cam_' + currentId, next);
   app.querySelectorAll('.cam-hint').forEach((el) => el.classList.remove('cam-hint'));
+  lsSet('pixelnook_cam_btn_used', '1'); // UI hint only: the switch button calms its blink after first use
+  app.querySelector('#camBtn')?.classList.remove('cam-fresh');
   sfx.click();
   applyCam();
   toast('Camera: ' + CAM_LABEL[next], '', 'cam');
@@ -552,7 +555,6 @@ function startGame(id) {
             <button type="button" class="btn chunky big-btn mute-btn" id="muteBtn">${soundHtml()}</button>
           </div>
           <div class="bar-tools" role="group" aria-label="View options">
-            <button type="button" class="btn chunky big-btn mini-btn cam-btn" id="camBtn">${camHtml(camOf(id))}</button>
             <button type="button" class="btn chunky big-btn mini-btn bg-btn" id="bgBtn">${bgHtml(bgOf())}</button>
             <button type="button" class="btn chunky big-btn mini-btn fs-btn" id="fsBtn">${fsHtml()}</button>
             <button type="button" class="btn chunky big-btn mini-btn info-btn" id="infoBtn" aria-label="Game info" title="How to play (Y on gamepad)">${ICON.info}<span>INFO</span></button>
@@ -577,6 +579,7 @@ function startGame(id) {
           <button type="button" class="btn chunky dock-btn dock-exit" id="dockExit" title="Exit fullscreen (F / Esc)">${ICON.fsx}<span>EXIT</span></button>
         </div>
       </div>
+      <button type="button" class="btn chunky big-btn cam-btn cam-switch${lsGet('pixelnook_cam_btn_used', '') === '1' ? '' : ' cam-fresh'}" id="camBtn">${camHtml(camOf(id))}</button>
       <div class="play-actions">
         <button type="button" class="btn chunky small mini-btn" id="pauseBtn" title="Pause / resume (P)">${ICON.pause}<span>PAUSE</span></button>
         <button type="button" class="btn chunky small mini-btn" id="restartBtn" title="Restart (R)">${ICON.restart}<span>RESTART</span></button>
@@ -625,6 +628,7 @@ function startGame(id) {
       if (s > 0) checkDaily(id, s, noSaveNow());
     },
     onStatus(t) {
+      if (t === 'Game Over' && lastStatus !== 'Game Over') overAt = performance.now();
       lastStatus = t;
       const el = app.querySelector('#statusEl');
       if (el) el.textContent = t;
@@ -755,10 +759,20 @@ function startGame(id) {
   }
   app.querySelector('#restartBtn').addEventListener('click', () => { currentGame?.restart(); showBoard(); });
   // ARCADE cabinet: its PAUSE / RESTART buttons do exactly what the side-panel buttons do; a plain click = the cart's tap
+  // Game over: one tap on the screen = a fresh game, straight into Playing (that tap does nothing else)
+  const tapRestart = () => {
+    if (lastStatus !== 'Game Over' || !currentGame) return false;
+    if (modalEl || performance.now() - overAt < 1300) return true; // swallow steering taps; lets the initials / score flow (opens at 1.1s) run first
+    currentGame.restart();
+    currentGame.start?.();
+    showBoard();
+    return true;
+  };
   view?.setArcadeHandlers?.({
     button: (b) => { if (b === 'pause') currentGame?.togglePause(); else if (b === 'restart') { currentGame?.restart(); showBoard(); } },
     tap: () => {
       if (currentGame?.isReady?.()) { currentGame.start(); return; } // start screen: the click only starts the game
+      if (tapRestart()) return;
       if (id === 'snake' || id === 'blockdrop') currentGame?.turnLeft?.();
     },
   });
@@ -791,6 +805,7 @@ function startGame(id) {
         currentGame.start();
         return;
       }
+      if (lastStatus === 'Game Over' && wrapEl?.contains(e.target)) { e.preventDefault(); tapRestart(); return; }
       if (id !== 'snake' && id !== 'blockdrop') return;
       e.preventDefault();
       currentGame?.turnLeft?.();

@@ -58,6 +58,17 @@ export function drawStartScreen(ctx, W, H, { title = 'PIXEL NOOK', accent = '#ff
   ctx.restore();
 }
 
+/** Blinking 'PRESS THE SCREEN TO RESTART' line under GAME OVER. */
+export function drawRestartHint(ctx, W, y) {
+  if (performance.now() % 900 >= 600) return;
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const sz = fit(ctx, 'PRESS THE SCREEN TO RESTART', W * 0.9, 7, 5);
+  label(ctx, 'PRESS THE SCREEN TO RESTART', W / 2, y, sz, '#ffe066');
+  ctx.restore();
+}
+
 const NOT_START = new Set(['p', 'escape', 'r', 'c', 'b', 'f', 'tab', 'shift', 'control', 'alt', 'meta', 'capslock', 'contextmenu']);
 /** True for a key press that should start a waiting game ("press any key", minus pause/restart/menu shortcuts). */
 export function isStartKey(e) {

@@ -3,7 +3,7 @@
 // plus optional held-input helpers (onKeyUp, release, action, actionUp) used by main.js.
 import { sfx } from '../audio.js';
 import { saveHighScore, getHighScores } from '../storage.js';
-import { drawStartScreen } from './startscreen.js';
+import { drawStartScreen, drawRestartHint } from './startscreen.js';
 
 export const FONT = '"Press Start 2P", monospace';
 
@@ -158,7 +158,7 @@ export function makeGame(canvas, hooks, spec) {
       ctx.fillRect(0, 0, spec.W, spec.H);
       api.text(api.overMsg || 'GAME OVER', spec.W / 2, spec.H / 2 - 14, 10, '#ff6b6b');
       api.text(`SCORE ${api.score}`, spec.W / 2, spec.H / 2 + 10, 10, '#fff');
-      api.text('R / RESTART', spec.W / 2, spec.H / 2 + 34, 7, '#9a8f7a');
+      drawRestartHint(ctx, spec.W, spec.H / 2 + 32);
     }
   }
 

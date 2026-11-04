@@ -2,7 +2,7 @@ import { sfx } from '../audio.js';
 import { emit } from '../fx.js';
 import { saveHighScore, getHighScores } from '../storage.js';
 import { getSkin } from '../progress.js';
-import { drawStartScreen } from './startscreen.js';
+import { drawStartScreen, drawRestartHint } from './startscreen.js';
 
 const COLS = 16;
 const ROWS = 16;
@@ -176,6 +176,7 @@ export function createSnake(canvas, hooks) {
       ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 10);
       ctx.fillStyle = '#fff';
       ctx.fillText(`SCORE ${score}`, canvas.width / 2, canvas.height / 2 + 14);
+      drawRestartHint(ctx, canvas.width, canvas.height / 2 + 36);
     }
   }
 

@@ -235,6 +235,11 @@ export function stopMusic(forget = false) {
   }
 }
 export const isMusicPlaying = () => !!timer;
+/** Backgrounding / native ads must not change the user's saved mute preference. */
+export async function suspendAudio() {
+  stopMusic();
+  try { if (ctx?.state === 'running') await ctx.suspend(); } catch (_) {}
+}
 /** Call from a user gesture: unlocks audio and starts the menu loop if it is wanted. */
 export function resumeAudio() {
   if (muted) return;

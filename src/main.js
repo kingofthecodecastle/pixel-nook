@@ -1,12 +1,18 @@
 import './style.css';
-import { sfx, isMuted, toggleMute, startMusic, stopMusic, resumeAudio, setRoom } from './audio.js';
+import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
+import { initializeAds, noteGameOver, beforeNextRound, showPrivacyOptions, adsEnabled } from './mobile/ads.js';
+import { flushNativeStorage, nativeStorageWarning } from './mobile/persistence.js';
+import { guardRoundTransitions } from './mobile/round-transition.js';
+import { openSaveTransfer } from './save-transfer-ui.js';
+import { sfx, isMuted, toggleMute, startMusic, stopMusic, resumeAudio, suspendAudio, setRoom } from './audio.js';
 import { captureCanvas } from './three/capture.js';
 import { setFxWidth } from './fx.js';
 import { getHighScores, nameLatest } from './storage.js';
 import { INFO, PAD_COMMON, KEYS_COMMON, CAM_NOTES } from './info.js';
 import {
   ACHIEVEMENTS, THEMES, SKINS, getProgress, onProgress, markPlayed, finishGame, checkDaily, dailyChallenge,
-  buy, setTheme, equipSkin, applyTheme, gameName, unlock,
+  buy, setTheme, equipSkin, applyTheme, gameName, unlock, reloadProgress,
 } from './progress.js';
 import { fetchAll, fetchGame, submitScore, qualifies, localList, lastInitials, saveInitials, isOnline, cachedGame } from './online.js';
 import { initGamepads } from './gamepad.js';
@@ -155,6 +161,8 @@ let keyHandler = null;
 let keyUpHandler = null;
 let screenFlashEl = null;
 let lastStatus = 'Playing';
+let roundTransitionBusy = false;
+let appActive = true;
 let overAt = 0; // when the current game ended (ignore taps right at the moment of death)
 
 // —— 3D: the arcade room (menu) and the per-game 3D view load in the background; plain 2D if WebGL is missing ——
@@ -382,8 +390,9 @@ window.addEventListener('resize', () => { app.querySelector('.canvas-wrap')?.cla
 
 /** Menu -> game: camera flies into the cabinet, then the cart boots. */
 async function launch(id) {
-  if (launching) return;
+  if (launching || roundTransitionBusy || !appActive) return;
   launching = true;
+  await nextRoundBreak();
   sfx.whoosh();
   app.querySelector('.home')?.classList.add('leaving');
   try {
@@ -391,6 +400,37 @@ async function launch(id) {
     if (room?.running && !reduceMotion) await Promise.race([room.flyTo(id, 0.6), sleep(900)]);
   } finally { launching = false; }
   startGame(id);
+}
+
+let roundTransitionPromise = null;
+function nextRoundBreak() {
+  if (roundTransitionPromise) return roundTransitionPromise;
+  roundTransitionBusy = true;
+  roundTransitionPromise = (async () => {
+    const overlay = document.createElement('div');
+    overlay.className = 'round-transition';
+    overlay.setAttribute('role', 'status');
+    overlay.textContent = 'NEXT ROUND…';
+    document.body.appendChild(overlay);
+    try {
+      await flushNativeStorage();
+      await suspendAudio();
+      if (appActive) await beforeNextRound();
+    } finally {
+      overlay.remove();
+      roundTransitionBusy = false;
+      roundTransitionPromise = null;
+      if (appActive) resumeAudio();
+    }
+  })();
+  return roundTransitionPromise;
+}
+for (const eventName of ['pointerdown', 'click', 'keydown']) {
+  window.addEventListener(eventName, (event) => {
+    if (!roundTransitionBusy) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, { capture: true, passive: false });
 }
 
 const CRT_KEY = 'pixelnook_crt';
@@ -442,6 +482,7 @@ window.addEventListener('keydown', unlockAudio, { capture: true });
 for (const ev of ['click', 'pointerup', 'mouseup', 'touchend']) window.addEventListener(ev, unlockAudio, { capture: true });
 
 function renderHome() {
+  if (roundTransitionBusy) return;
   teardownGame();
   setRoom(true);
   if (room) { room.start(); room.focus(null); if (returnFrom && !reduceMotion) room.pullBack(returnFrom); }
@@ -485,6 +526,8 @@ function renderHome() {
           <button type="button" class="btn chunky big-btn mute-btn" id="muteBtn">${soundHtml()}</button>
           <div class="foot-tools" role="group" aria-label="More">
             <button type="button" class="btn chunky small mini-btn" id="boardBtn">🏆 LEADERBOARD</button>
+            <button type="button" class="btn chunky small mini-btn" id="saveBtn">SAVE / TRANSFER</button>
+            ${Capacitor.isNativePlatform() ? '<button type="button" class="btn chunky small mini-btn" id="privacyBtn">AD PRIVACY</button>' : ''}
             <button type="button" class="btn chunky small mini-btn" id="shopBtn">🛒 SHOP</button>
             <button type="button" class="btn chunky small mini-btn" id="achBtn">⭐ ${achDone}/${ACHIEVEMENTS.length}</button>
             <button type="button" class="btn chunky small mini-btn${isCrt() ? ' on' : ''}" id="crtBtn" aria-pressed="${isCrt()}">📺 CRT ${isCrt() ? 'ON' : 'OFF'}</button>
@@ -512,6 +555,11 @@ function renderHome() {
   app.querySelector('#muteBtn').addEventListener('click', () => { toggleMute(); sfx.click(); renderHome(); });
   app.querySelector('#fsBtn').addEventListener('click', (e) => { e.currentTarget.blur(); toggleFullscreen(); });
   app.querySelector('#boardBtn').addEventListener('click', () => { sfx.click(); openBoard(d.game); });
+  app.querySelector('#saveBtn').addEventListener('click', () => openSaveTransfer({ openModal, flushStorage: flushNativeStorage, onImported: reloadProgress }));
+  app.querySelector('#privacyBtn')?.addEventListener('click', async () => {
+    const result = await showPrivacyOptions();
+    if (!result) toast('Ad privacy options are not required or are unavailable right now.');
+  });
   app.querySelector('#shopBtn').addEventListener('click', () => { sfx.click(); openShop(); });
   app.querySelector('#achBtn').addEventListener('click', () => { sfx.click(); openAchievements(); });
   app.querySelector('#crtBtn').addEventListener('click', () => {
@@ -664,11 +712,14 @@ function startGame(id) {
       const noSave = !!opts.noSave;
       checkDaily(id, score, noSave);
       finishGame(id, score, { noSave });
+      noteGameOver();
+      void flushNativeStorage();
+      if (adsEnabled()) toast('An ad may play before the next round.');
       showBoard();
       if (noSave || score <= 0) return;
       const game = currentGame;
       setTimeout(() => {
-        if (currentGame !== game || modalEl || lastStatus !== 'Game Over') return;
+        if (currentGame !== game || modalEl || roundTransitionBusy || lastStatus !== 'Game Over') return;
         if (isOnline() === false || qualifies(id, score)) openInitials(id, score, showBoard);
         else { nameLatest(id, score, lastInitials()); showBoard(); toast('Not top 10 this time – try again!'); }
       }, 1100);
@@ -677,7 +728,13 @@ function startGame(id) {
 
   hooks.title = meta.title; hooks.accent = meta.accent; // for the start screen card
   lastStatus = 'Ready';
-  currentGame = gateStart(meta.factory(canvas, hooks)); // waits on the old-arcade start screen until a tap / key / pad press
+  currentGame = guardRoundTransitions(gateStart(meta.factory(canvas, hooks)), {
+    isOver: () => lastStatus === 'Game Over',
+    isCurrent: (game) => currentGame === game,
+    transition: nextRoundBreak,
+    canAutoStart: () => appActive,
+    canRestart: () => appActive && !roundTransitionBusy && !modalEl && (lastStatus !== 'Game Over' || performance.now() - overAt >= 1300),
+  }); // waits on the old-arcade start screen until a tap / key / pad press
 
   cap.W = canvas.width; cap.H = canvas.height;
   fitCanvas();
@@ -700,7 +757,7 @@ function startGame(id) {
     });
   }
 
-  keyHandler = (e) => { if (modalEl) return; currentGame?.onKey?.(e); };
+  keyHandler = (e) => { if (modalEl || roundTransitionBusy || !appActive) return; currentGame?.onKey?.(e); };
   // capture:true so Arrow keys aren't lost when a button has focus (macOS Chrome)
   window.addEventListener('keydown', keyHandler, { capture: true });
   // Held-input games (Cabinet 2) also listen for key releases
@@ -763,8 +820,7 @@ function startGame(id) {
   const tapRestart = () => {
     if (lastStatus !== 'Game Over' || !currentGame) return false;
     if (modalEl || performance.now() - overAt < 1300) return true; // swallow steering taps; lets the initials / score flow (opens at 1.1s) run first
-    currentGame.restart();
-    currentGame.start?.();
+    void currentGame.restart({ autoStart: true });
     showBoard();
     return true;
   };
@@ -827,7 +883,7 @@ function startGame(id) {
 
   const loop = (now) => {
     cap?.begin();
-    currentGame?.update(now);
+    if (appActive && !roundTransitionBusy) currentGame?.update(now);
     view?.render(now);
     raf = requestAnimationFrame(loop);
   };
@@ -881,6 +937,7 @@ function openModal(inner, cfg = {}) {
   modalKey = (e) => {
     e.stopPropagation();
     if (e.key === 'Escape' || e.code === 'Escape') { e.preventDefault(); closeModal(true); return; }
+    if (e.target instanceof HTMLElement && e.target.matches('input, textarea, select')) return;
     if (cfg.onKey && cfg.onKey(e)) { e.preventDefault(); return; }
     if (e.key === 'Enter' || e.key === ' ') return; // activate focused button
     if (e.key !== 'Tab') e.preventDefault();
@@ -1132,6 +1189,7 @@ const KEYSETS = {
 const fakeKey = (code, key, repeat = false) => ({ code, key, repeat, preventDefault() {}, stopPropagation() {} });
 
 function onPad({ pad, btn, down, repeat }) {
+  if (roundTransitionBusy || !appActive) return;
   if (btn === 'rb' && down && !repeat && !modalEl) { toggleFullscreen(); return; }
   if (btn === 'lb' && down && !repeat && !modalEl && currentGame) { cycleCam(); return; }
   if (modalEl) {
@@ -1181,3 +1239,33 @@ window.__pixelnook = { get game() { return currentGame; }, get id() { return cur
 initGamepads(onPad, (gp, on) => toast(on ? '🎮 Controller connected' : '🎮 Controller disconnected'));
 
 renderHome();
+
+// Pause the game even if a slow consent response arrives after a cart was started.
+window.addEventListener('pixelnook-consent-ui', ({ detail }) => setAppActive(!detail.active && !document.hidden));
+// Ads initialize only after the UI is present; failed consent/network never blocks play.
+void initializeAds();
+function setAppActive(active) {
+  appActive = active;
+  if (!active) {
+    if (currentGame && !['Ready', 'Paused', 'Game Over'].includes(lastStatus)) currentGame.togglePause?.();
+    room?.stop();
+    void suspendAudio();
+    void flushNativeStorage();
+  } else if (!roundTransitionBusy) {
+    if (!currentGame) room?.start();
+    // Keep gameplay paused until the player deliberately resumes.
+  }
+}
+document.addEventListener('visibilitychange', () => setAppActive(!document.hidden));
+if (Capacitor.isNativePlatform()) {
+  void App.addListener('appStateChange', ({ isActive }) => setAppActive(isActive));
+  void App.addListener('backButton', () => {
+    if (roundTransitionBusy) return;
+    if (modalEl) closeModal(true);
+    else if (currentGame) renderHome();
+    else void App.minimizeApp();
+  });
+}
+const storageWarning = () => toast('Device backup unavailable. Use SAVE / TRANSFER to export your progress.');
+window.addEventListener('pixelnook-storage-warning', storageWarning);
+if (nativeStorageWarning()) storageWarning();

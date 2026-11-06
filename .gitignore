@@ -22,3 +22,22 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Native build artifacts and secure local configuration
+dist-native/
+.env
+.env.*
+!.env.native.example
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+android/local.properties
+android/keystore.properties
+ios/App/Config/Ads.local.xcconfig
+android/app/src/main/res/values/admob.local.xml
+playwright-report/
+test-results/
+artifacts/
+
+.tools/

@@ -112,3 +112,17 @@ No third-party art, models, textures or audio are used. Everything in the 3D vie
 ## License
 
 MIT — hackathon free-for-all. Have fun.
+
+## iOS and Android
+
+The existing game is now also packaged with Capacitor for Codecastle (`ai.codecastle.pixelnook`). See [the mobile setup guide](docs/MOBILE.md) for native builds, AdMob, signing, shared leaderboard access and safe save transfer. Browser saves remain on their original origin; use **SAVE / TRANSFER** to bring them into an installed app.
+
+```sh
+npm test
+npm run test:e2e
+npm run native:sync
+npm run android:debug
+npm run native:ios
+```
+
+Development uses Google demo ads. Production distribution is deliberately blocked until live AdMob settings and signing are configured. No database reset or save-key migration is part of this setup.

@@ -14,8 +14,7 @@ const BLOCKED = new Set(['ASS', 'FUK', 'FUC', 'FCK', 'SEX', 'KKK', 'NIG', 'FAG',
 const RATE_PER_MIN = 6;
 const RATE_PER_HOUR = 60;
 const GLOBAL_PER_MIN = 300; // flood guard across all clients
-// Removes the TST rows written while testing the API on launch day (29 Oct 2026); harmless afterwards.
-const TEST_CLEANUP_BEFORE = '2026-10-29T20:20:00Z';
+const APP_ORIGINS = ['capacitor://localhost', 'https://localhost'];
 
 function conn() { return process.env.DATABASE_URL || process.env.POSTGRES_URL || ''; }
 
@@ -46,7 +45,6 @@ function ensureSchema() {
         created_at timestamptz NOT NULL DEFAULT now())`);
       await sql('CREATE INDEX IF NOT EXISTS scores_game_score ON scores (game, score DESC, created_at ASC)');
       await sql('CREATE INDEX IF NOT EXISTS scores_ip_time ON scores (ip_hash, created_at DESC)');
-      await sql("DELETE FROM scores WHERE name = 'TST' AND created_at < $1", [TEST_CLEANUP_BEFORE]);
     })().catch((e) => { ready = null; throw e; });
   }
   return ready;
@@ -85,7 +83,53 @@ function send(res, status, obj, cache = 'no-store') {
   res.end(JSON.stringify(obj));
 }
 
+// CORS enables the bundled apps to share this existing leaderboard. It is not
+// authentication: score validation and rate limits still apply to every client.
+export function applyScoresCors(req, res, configured = process.env.SCORES_ALLOWED_ORIGINS || '') {
+  res.setHeader('Vary', 'Origin');
+  const origin = req.headers.origin;
+  const allowed = new Set(APP_ORIGINS);
+  for (const value of configured.split(',').map((s) => s.trim()).filter(Boolean)) {
+    try {
+      const url = new URL(value);
+      if (url.protocol === 'https:' && url.origin === value && !url.username && !url.password) allowed.add(value);
+    } catch { /* Ignore malformed configuration rather than reflecting arbitrary origins. */ }
+  }
+  // Preserve same-origin web requests on the production domain and previews.
+  const host = req.headers.host;
+  const proto = req.headers['x-forwarded-proto'] || (host?.startsWith('localhost:') ? 'http' : 'https');
+  const sameOrigin = host && origin === `${proto}://${host}`;
+  if (origin && !sameOrigin && !allowed.has(origin)) {
+    send(res, 403, { error: 'origin not allowed' });
+    return false;
+  }
+  if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Vary', 'Origin, Access-Control-Request-Method, Access-Control-Request-Headers');
+    const method = req.headers['access-control-request-method'];
+    const headers = String(req.headers['access-control-request-headers'] || '').toLowerCase().split(',').map((s) => s.trim()).filter(Boolean);
+    if ((method && !['GET', 'POST'].includes(method)) || headers.some((h) => !['content-type', 'accept'].includes(h))) {
+      send(res, 403, { error: 'preflight not allowed' });
+      return false;
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+    res.setHeader('Access-Control-Max-Age', '600');
+    res.setHeader('Cache-Control', 'no-store');
+    res.statusCode = 204;
+    res.end();
+    return false;
+  }
+  return true;
+}
+
 export default async function handler(req, res) {
+  // Preflight and rejected origins must never open or mutate the database.
+  if (!applyScoresCors(req, res)) return;
+  if (!['GET', 'POST'].includes(req.method)) {
+    res.setHeader('Allow', 'GET, POST, OPTIONS');
+    return send(res, 405, { error: 'method not allowed' });
+  }
   try {
     await ensureSchema();
     if (req.method === 'GET') {
@@ -121,8 +165,6 @@ export default async function handler(req, res) {
       const [r] = await sql('SELECT count(*) + 1 AS rank FROM scores WHERE game = $1 AND score > $2', [game, score]);
       return send(res, 201, { ok: true, rank: Number(r.rank), scores: await top(game) });
     }
-    res.setHeader('Allow', 'GET, POST');
-    return send(res, 405, { error: 'method not allowed' });
   } catch (e) {
     return send(res, 503, { error: 'leaderboard unavailable' });
   }

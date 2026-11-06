@@ -1,7 +1,12 @@
 // Client for the global leaderboard (/api/scores) with a local fallback.
 import { getHighScores } from './storage.js';
+import { Capacitor } from '@capacitor/core';
+import { resolveScoresApi } from './api-url.js';
 
-const API = '/api/scores';
+const API = resolveScoresApi({
+  native: Capacitor.isNativePlatform(),
+  configured: import.meta.env.VITE_SCORES_API_URL,
+});
 const INITIALS_KEY = 'pixelnook_initials';
 let cache = null; // { at, scores }
 let online = null; // null = unknown, true/false after first call

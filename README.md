@@ -4,7 +4,7 @@
 
 A tiny living-room cabinet for the browser — pick a cartridge, play, chase the high score. Built for Kai's Vibe Coding Academy hackathon.
 
-Free. No ads. Just beeps and pixels — plus a tiny serverless leaderboard.
+Free to play, with beeps, pixels and a shared leaderboard. The website has no ads; the native apps support AdMob interstitial ads between rounds.
 
 ## Games
 
@@ -64,7 +64,7 @@ On phones/tablets use the on-screen D-pad and the red **●** button (hold works
 
 - `GET /api/scores` → top 10 for every game · `GET /api/scores?game=snake` → one game
 - `POST /api/scores` `{ "game": "snake", "name": "KAI", "score": 420 }`
-- Abuse protection: game whitelist, initials must be 3 × `A–Z / 0–9` (with a small blocklist), per-game score ceilings, and a rate limit per hashed IP (6 per minute, 60 per hour → HTTP 429). Raw IPs are never stored.
+- Abuse protection: game whitelist, initials must be 3 × `A–Z / 0–9` (with a small blocklist), per-game score ceilings, and a rate limit per hashed IP (6 per minute, 60 per hour → HTTP 429). The scores table stores an IP hash, not the raw address; hosting providers may process request metadata.
 
 ## Run locally
 

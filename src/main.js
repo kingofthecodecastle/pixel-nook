@@ -536,6 +536,7 @@ function renderHome() {
           </div>
         </div>
         <p class="hint">Arrows / WASD · Space fire/jump · P pause · R restart · F fullscreen · C camera · 🎮 gamepad <span id="netState"></span></p>
+        <nav class="legal-links" aria-label="Support and privacy"><a href="./support.html">HELP / SUPPORT</a><a href="./privacy.html">PRIVACY POLICY</a><span>© CodeCastle AS</span></nav>
       </footer>
     </div>
   `;
@@ -1075,7 +1076,7 @@ function openInitials(id, score, refresh) {
     setModalInner(`
       <p class="info-kicker">NEW HIGH SCORE!</p>
       <h2 class="info-title">${esc(GAMES[id].title)} · ${score}</h2>
-      <p class="ini-help">Enter your initials</p>
+      <p class="ini-help">Enter your initials · SUBMIT makes your initials and score public. SKIP keeps this score on your device.</p>
       <div class="ini">${L.map((c, i) => `
         <div class="ini-slot${i === pos ? ' on' : ''}" data-slot="${i}">
           <button type="button" class="ini-arrow" data-up="${i}" aria-label="Next letter">▲</button>

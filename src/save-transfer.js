@@ -5,7 +5,10 @@ const VERSION = 1;
 const PREFIX = 'pixelnook_';
 // Deliberately outside pixelnook_* so exports do not recursively include backups.
 const BACKUP_PREFIX = 'pixelnook:import-backup:';
-const MAX_BYTES = 2 * 1024 * 1024;
+// Includes the complete UTF-8 JSON envelope. This covers full browser stores
+// and merged score archives without silently truncating any exported value.
+export const SAVE_IMPORT_LIMIT_BYTES = 32 * 1024 * 1024;
+export const SAVE_IMPORT_SIZE_ERROR = `Choose a Pixel Nook save no larger than ${SAVE_IMPORT_LIMIT_BYTES / (1024 * 1024)} MiB, including the JSON file contents. Your current save has not been changed.`;
 const FORBIDDEN = new Set(['__proto__', 'prototype', 'constructor']);
 const own = (object, key) => Object.hasOwn(object, key);
 const plain = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -72,8 +75,9 @@ function validateValue(key, value) {
 }
 
 function readTransfer(text) {
-  if (typeof text !== 'string' || new TextEncoder().encode(text).length > MAX_BYTES) {
-    throw new Error('Choose a Pixel Nook save smaller than 2 MB.');
+  if (typeof text !== 'string' || text.length > SAVE_IMPORT_LIMIT_BYTES
+    || new TextEncoder().encode(text).length > SAVE_IMPORT_LIMIT_BYTES) {
+    throw new Error(SAVE_IMPORT_SIZE_ERROR);
   }
   const transfer = parseJSON(text, 'File');
   if (!plain(transfer) || transfer.format !== FORMAT || transfer.version !== VERSION || !plain(transfer.entries)) {

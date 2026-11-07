@@ -55,6 +55,23 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
+test('privacy and support navigation preserves existing saves', async ({ page }, testInfo) => {
+  await openHome(page);
+  await page.getByRole('link', { name: 'PRIVACY POLICY', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Privacy policy', exact: true })).toBeVisible();
+  await expect(page.getByText('Submitted leaderboard records currently have no automatic expiry.', { exact: false })).toBeVisible();
+  expect(await savedEntries(page)).toEqual(originalEntries);
+  await capture(page, testInfo, 'privacy-policy');
+  await page.locator('.topbar').getByRole('link', { name: 'Support', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'A little arcade help.' })).toBeVisible();
+  await page.getByText('How do I move my browser progress into the app?', { exact: true }).click();
+  await expect(page.getByText('Coin balances use the higher value', { exact: false })).toBeVisible();
+  await capture(page, testInfo, 'support');
+  await page.getByRole('link', { name: '← Return to the arcade', exact: true }).click();
+  await expect(page.locator('.cart')).toHaveCount(12);
+  expect(await savedEntries(page)).toEqual(originalEntries);
+});
+
 test('all twelve existing carts open in the mobile layout and preserve saved progress', async ({ page }, testInfo) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));

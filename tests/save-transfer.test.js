@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { exportSave, importSave, exportRecoverySave, listRecoverySaves } from '../src/save-transfer.js';
+import { exportSave, importSave, exportRecoverySave, listRecoverySaves, SAVE_IMPORT_LIMIT_BYTES } from '../src/save-transfer.js';
 import { getHighScores, saveHighScore, nameLatest, isTopScore } from '../src/storage.js';
 
 class MemoryStorage {
@@ -29,6 +29,32 @@ test('fresh app receives exact legacy keys and data; no source key is renamed', 
   assert.equal(result.changed, 4);
   for (const [key, value] of Object.entries(source)) assert.equal(storage.getItem(key), value);
   assert.deepEqual(JSON.parse(exportRecoverySave(result.backupKey, { source: 'incoming', storage })).entries, source);
+});
+
+test('merged multibyte saves larger than the former 2 MiB limit round-trip losslessly', () => {
+  // Two valid smaller snapshots may become one larger export after merging.
+  // Keep the fixture near 2 MiB rather than allocating a maximum-size file.
+  const annotation = '💾'.repeat(280000);
+  const storage = new MemoryStorage({
+    pixelnook_hs_snake: JSON.stringify([score(500), score(100)]),
+    pixelnook_progress: progress(),
+    pixelnook_archive_notes_a: annotation,
+  });
+  const incoming = transfer({ pixelnook_archive_notes_b: annotation });
+  assert.ok(new TextEncoder().encode(incoming).length < 2 * 1024 * 1024);
+  importSave(incoming, { storage });
+  const exported = exportSave(storage);
+  const bytes = new TextEncoder().encode(exported).length;
+  assert.ok(bytes > 2 * 1024 * 1024);
+  assert.ok(bytes < SAVE_IMPORT_LIMIT_BYTES);
+  assert.ok(bytes > exported.length, 'Limit is measured in UTF-8 bytes, not character count');
+
+  const destination = new MemoryStorage();
+  importSave(exported, { storage: destination });
+  assert.deepEqual(JSON.parse(exportSave(destination)).entries, JSON.parse(exported).entries);
+  assert.equal(destination.getItem('pixelnook_archive_notes_a'), annotation);
+  assert.equal(destination.getItem('pixelnook_archive_notes_b'), annotation);
+  assert.equal(importSave(exported, { storage: destination }).changed, 0);
 });
 
 test('merges all scores, ownership and progress without losing destination preferences or doubling imports', () => {

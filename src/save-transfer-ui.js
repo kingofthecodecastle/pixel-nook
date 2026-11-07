@@ -1,5 +1,5 @@
 import { Capacitor } from '@capacitor/core';
-import { exportSave, importSave, exportRecoverySave, listRecoverySaves } from './save-transfer.js';
+import { exportSave, importSave, exportRecoverySave, listRecoverySaves, SAVE_IMPORT_LIMIT_BYTES, SAVE_IMPORT_SIZE_ERROR } from './save-transfer.js';
 
 async function saveFile(text, name) {
   if (Capacitor.isNativePlatform()) {
@@ -28,7 +28,7 @@ export function openSaveTransfer({ openModal, flushStorage = async () => true, o
     <div class="save-actions"><button type="button" class="btn chunky small" id="saveExport">EXPORT SAVE</button><button type="button" class="btn chunky small" id="saveCopy">COPY TEXT</button></div>
     <label class="save-label" for="saveText">Save text — paste a save here, or export to fill this box</label>
     <textarea id="saveText" class="save-text" rows="6" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Paste Pixel Nook save JSON"></textarea>
-    <label class="save-label" for="saveFile">Or open a save file</label>
+    <label class="save-label" for="saveFile">Or open a save file (up to ${SAVE_IMPORT_LIMIT_BYTES / (1024 * 1024)} MiB)</label>
     <input id="saveFile" type="file" accept=".json,application/json,text/plain" />
     <p class="save-help">Import merges both saves. Scores and unlocked items are kept; coin balances use the higher value, never a sum. Existing initials and settings on this device stay selected. A recovery copy of both saves is kept before every change.</p>
     <div class="save-actions"><button type="button" class="btn chunky small" id="saveImport">IMPORT & RELOAD</button><button type="button" class="btn chunky small" id="saveRetry" hidden>RETRY BACKUP & RELOAD</button></div>
@@ -111,7 +111,7 @@ export function openSaveTransfer({ openModal, flushStorage = async () => true, o
   query('#saveFile').addEventListener('change', (event) => run(async () => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) throw new Error('Choose a Pixel Nook save smaller than 2 MB.');
+    if (file.size > SAVE_IMPORT_LIMIT_BYTES) throw new Error(SAVE_IMPORT_SIZE_ERROR);
     text.value = await file.text();
     report('File loaded. Nothing has changed yet. Choose IMPORT & RELOAD to merge it.');
   }));

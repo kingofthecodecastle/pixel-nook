@@ -17,6 +17,10 @@ npm run native:ios
 
 For Android, use `npm run native:android` after the same sync. `npm run android:debug` creates an APK and automatically uses the project-local Java/Android tools under ignored `.tools/` when available; `npm run android:bundle` requires complete release configuration and secure signing variables. `native:sync` builds local game assets, generates native AdMob configuration and copies the assets/plugins to both native projects. It does not publish the website or upload to either store. Use the stable production API URL, not a temporary protected preview deployment.
 
+New Android debug builds install separately as **Pixel Nook Test** (`ai.codecastle.pixelnook.debug`). The release app remains **Pixel Nook** (`ai.codecastle.pixelnook`). Their saves are separate; use SAVE / TRANSFER to copy progress between them. Installing the test app does not replace the release app.
+
+**Earlier debug APKs already downloaded may use `ai.codecastle.pixelnook`. Never uninstall one before exporting its save and keeping a verified copy outside the app.** A release signed with the production key cannot update over that debug-signed installation. First export through SAVE / TRANSFER, then import into the new test app or the eventual release. Keep the export until initials, scores, coins, badges and unlocked items have been checked. Renaming the new debug package does not automatically move saves from an earlier APK.
+
 By default these are **test-ad builds**. Google's public demo identifiers do not generate revenue. The generated app identifiers are written to ignored `ios/App/Config/Ads.local.xcconfig` and `android/app/src/main/res/values/admob.local.xml`. The tracked iOS config has a demo fallback. Regenerate local native configuration after changing ad settings.
 
 ## Save preservation and moving from the website
@@ -31,6 +35,8 @@ Safari/Chrome website storage and an installed app's storage are isolated. Capac
 4. Check initials, local highscores, coins, achievements, themes and skins before discarding any backup.
 
 Import merges existing data and creates a complete backup first; it does not reset local keys or upload old local scores into the public leaderboard. Keep an exported copy when replacing devices or uninstalling: app uninstall can remove native storage, and OS backups are not a guarantee. Browser/device profiles must each export their own local saves. Global scores stay in the same server database and need no migration.
+
+Save-file and pasted-text imports accept up to **32 MiB of UTF-8 JSON, including the complete file envelope**. The file picker and importer use the same limit, so complete browser saves and merged score histories can exceed the former 2 MiB boundary. Exports remain lossless and are never trimmed to fit this limit. An export larger than 32 MiB can still be kept as a backup, but this importer will reject it before changing any saved values. Invalid files and insufficient space for a recovery copy also leave the existing save intact.
 
 ## Shared leaderboard and server access
 

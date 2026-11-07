@@ -2,6 +2,10 @@
 
 Updated 7 November 2026. Publisher: **CodeCastle AS**. This document records preparation separately from store publication. No App Store or Google Play release has been submitted yet, and no live AdMob serving has been verified.
 
+## Published web/API
+
+PR #1 is merged. Production deployment `dpl_DSbrBvdGZa3wsifrSkwv65ijvVac` from main commit `ded727a736aaa84f4cff8ddec5694507554bdd7d` is READY on `https://pixel-nook-tawny.vercel.app/`. Privacy/support pages and their short routes returned the intended HTML with HTTP 200. Both native origins returned OPTIONS 204 and leaderboard GET 200: twelve games and 33 visible top-score rows. No test score was inserted. `/app-ads.txt` correctly returns plain-text 404 until the real publisher is configured.
+
 ## Verified account and signing preparation
 
 - Apple API access works with Codecastle's existing securely stored API key; no new login or key was required.
@@ -53,3 +57,11 @@ Inspect the signed IPA/AAB, actual embedded API URL, identifiers, SDK manifests 
 Upload the exact verified artifacts, wait for provider processing, attach metadata/screenshots and submit for review. Record upload IDs, processed version/build, review/submission status and final public store links separately. Publishing is complete only after the stores show the apps available, not merely after an upload succeeds.
 
 The existing web/API deployment and Neon leaderboard remain in place. No reset, deletion or storage-key renaming is part of this release.
+
+## Local verification and retained artifacts
+
+The latest code passes 56 unit tests and 15 browser tests across phone portrait, phone landscape and iPad-sized viewports. Both native debug builds succeed. A tablet footer overflow found in the native simulator was corrected; buttons and support/privacy links now remain inside the cabinet. iPhone gameplay/pause and iPad policy navigation back to the cabinet were observed, including retained refusal of Google's demo consent prompt after an app update.
+
+Ignored local deliverables are `artifacts/PixelNook-Android-debug.apk` (separate `ai.codecastle.pixelnook.debug` test app), `artifacts/PixelNook-iOS-Simulator.zip`, and initial genuine simulator screenshots under `artifacts/store/ios-phone/` (1206×2622) and `artifacts/store/ios-ipad/` (2064×2752). These are not signed store releases. Store screenshots should receive a final review against the submitted release and the current store slots.
+
+Real-device ad display/close and touch-swipe navigation still require verification. The desktop automation's drag/wheel attempts did not produce scrolling on either the game or the standalone policy page, so those attempts do not establish a game-specific defect or a passing swipe check. No speculative scrolling change was made. Preserve the two dedicated QA simulators and their saves; they are shut down after testing, not erased.

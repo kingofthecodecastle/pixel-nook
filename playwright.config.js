@@ -25,6 +25,7 @@ export default defineConfig({
   projects: [
     { name: 'mobile-portrait', use: { viewport: { width: 390, height: 844 } } },
     { name: 'mobile-landscape', use: { viewport: { width: 844, height: 390 } } },
+    { name: 'tablet-portrait', use: { viewport: { width: 1032, height: 1376 } } },
   ],
   webServer: {
     command: 'npm run dev -- --host 127.0.0.1 --port 5173 --strictPort',

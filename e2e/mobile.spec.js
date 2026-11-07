@@ -78,6 +78,14 @@ test('all twelve existing carts open in the mobile layout and preserve saved pro
   await openHome(page);
   expect(await savedEntries(page)).toEqual(originalEntries);
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'neon');
+  const footer = await page.locator('.home-foot').evaluate(element => {
+    const frame = element.closest('.crt-frame').getBoundingClientRect();
+    return [...element.querySelectorAll('button, a')].map(child => {
+      const box = child.getBoundingClientRect();
+      return box.left >= frame.left && box.right <= frame.right;
+    });
+  });
+  expect(footer.every(Boolean)).toBe(true);
   await capture(page, testInfo, 'retro-cabinet');
   for (const id of GAME_IDS) {
     await page.locator(`.cart[data-game="${id}"]`).click();

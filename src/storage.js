@@ -1,6 +1,6 @@
 const PREFIX = 'pixelnook_hs_';
 
-export function getHighScores(gameId) {
+function allHighScores(gameId) {
   try {
     const raw = localStorage.getItem(PREFIX + gameId);
     return raw ? JSON.parse(raw) : [];
@@ -9,12 +9,18 @@ export function getHighScores(gameId) {
   }
 }
 
+export function getHighScores(gameId) {
+  return allHighScores(gameId).slice(0, 5);
+}
+
 export function saveHighScore(gameId, score, name = 'YOU') {
-  const list = getHighScores(gameId);
+  const list = allHighScores(gameId);
   list.push({ score, name, at: Date.now() });
   list.sort((a, b) => b.score - a.score);
   const top = list.slice(0, 5);
-  localStorage.setItem(PREFIX + gameId, JSON.stringify(top));
+  // Keep the complete history under the original key. The public leaderboard
+  // remains a top five, while transfers and future app updates retain all runs.
+  localStorage.setItem(PREFIX + gameId, JSON.stringify(list));
   return top;
 }
 
@@ -26,7 +32,7 @@ export function isTopScore(gameId, score) {
 
 /** Put arcade initials on the most recent local entry with this score. */
 export function nameLatest(gameId, score, name) {
-  const list = getHighScores(gameId);
+  const list = allHighScores(gameId);
   let best = null;
   for (const e of list) if (e.score === score && (!best || e.at > best.at)) best = e;
   if (!best) return;

@@ -142,4 +142,6 @@ export function getSkin(game) {
   const s = id && SKINS.find((x) => x.id === id);
   return s ? s.colors : null;
 }
+/** Refresh cached progress after a save transfer, before any further gameplay. */
+export function reloadProgress() { P = load(); applyTheme(); }
 export function _resetForTests() { P = load(); }

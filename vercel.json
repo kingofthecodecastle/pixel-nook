@@ -1,3 +1,8 @@
 {
-  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/app-ads.txt", "destination": "/api/app-ads" },
+    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/support", "destination": "/support.html" },
+    { "source": "/((?!api/|privacy\\.html$|support\\.html$|legal\\.css$|app-ads\\.txt$).*)", "destination": "/index.html" }
+  ]
 }

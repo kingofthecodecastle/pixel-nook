@@ -1,0 +1,14 @@
+{
+  "appId": "ai.codecastle.pixelnook",
+  "appName": "Pixel Nook",
+  "webDir": "dist-native",
+  "backgroundColor": "#0b0b12",
+  "server": {
+    "hostname": "localhost",
+    "iosScheme": "capacitor",
+    "androidScheme": "https"
+  },
+  "ios": { "contentInset": "always" },
+  "android": { "allowMixedContent": false },
+  "plugins": { "CapacitorHttp": { "enabled": false } }
+}

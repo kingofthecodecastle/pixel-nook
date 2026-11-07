@@ -1,0 +1,4 @@
+// Public Google demo app ID. Local/CI configuration overrides this for releases.
+ADMOB_APP_ID = ca-app-pub-3940256099942544~1458002511
+PIXELNOOK_ADS_MODE = test
+#include? "Ads.local.xcconfig"

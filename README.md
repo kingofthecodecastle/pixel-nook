@@ -4,7 +4,7 @@
 
 A tiny living-room cabinet for the browser — pick a cartridge, play, chase the high score. Built for Kai's Vibe Coding Academy hackathon.
 
-Free. No ads. Just beeps and pixels — plus a tiny serverless leaderboard.
+Free to play, with beeps, pixels and a shared leaderboard. The website has no ads; the native apps support AdMob interstitial ads between rounds.
 
 ## Games
 
@@ -64,7 +64,7 @@ On phones/tablets use the on-screen D-pad and the red **●** button (hold works
 
 - `GET /api/scores` → top 10 for every game · `GET /api/scores?game=snake` → one game
 - `POST /api/scores` `{ "game": "snake", "name": "KAI", "score": 420 }`
-- Abuse protection: game whitelist, initials must be 3 × `A–Z / 0–9` (with a small blocklist), per-game score ceilings, and a rate limit per hashed IP (6 per minute, 60 per hour → HTTP 429). Raw IPs are never stored.
+- Abuse protection: game whitelist, initials must be 3 × `A–Z / 0–9` (with a small blocklist), per-game score ceilings, and a rate limit per hashed IP (6 per minute, 60 per hour → HTTP 429). The scores table stores an IP hash, not the raw address; hosting providers may process request metadata.
 
 ## Run locally
 
@@ -112,3 +112,17 @@ No third-party art, models, textures or audio are used. Everything in the 3D vie
 ## License
 
 MIT — hackathon free-for-all. Have fun.
+
+## iOS and Android
+
+The existing game is now also packaged with Capacitor for Codecastle (`ai.codecastle.pixelnook`). See [the mobile setup guide](docs/MOBILE.md) for native builds, AdMob, signing, shared leaderboard access and safe save transfer. Browser saves remain on their original origin; use **SAVE / TRANSFER** to bring them into an installed app.
+
+```sh
+npm test
+npm run test:e2e
+npm run native:sync
+npm run android:debug
+npm run native:ios
+```
+
+Development uses Google demo ads. Production distribution is deliberately blocked until live AdMob settings and signing are configured. No database reset or save-key migration is part of this setup.
